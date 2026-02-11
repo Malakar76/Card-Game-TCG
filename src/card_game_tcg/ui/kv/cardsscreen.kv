@@ -4,14 +4,31 @@
         padding: dp(20)
         spacing: dp(12)
 
+        canvas.before:
+            Color:
+                rgba: 0.10, 0.10, 0.18, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
         NavBar:
 
         Label:
-            text: "Cartes existantes"
-            font_size: sp(22)
+            text: "Collection"
+            font_size: sp(26)
             size_hint_y: None
-            height: dp(40)
+            height: dp(50)
             bold: True
+            color: 0.89, 0.72, 0.08, 1
+
+        # Empty state message
+        Label:
+            text: "Aucune carte dans la collection" if not rv.data else ""
+            size_hint_y: None
+            height: dp(40) if not rv.data else dp(0)
+            opacity: 1 if not rv.data else 0
+            color: 0.53, 0.53, 0.53, 1
+            font_size: sp(15)
 
         RecycleView:
             id: rv
@@ -19,40 +36,89 @@
             size_hint_y: 1
 
             RecycleBoxLayout:
-                default_size: None, dp(70)
+                default_size: None, dp(90)
                 default_size_hint: 1, None
                 size_hint_y: None
                 height: self.minimum_height
                 orientation: "vertical"
-                spacing: dp(6)
+                spacing: dp(10)
+                padding: [dp(0), dp(4), dp(0), dp(4)]
 
 <CardRow>:
     orientation: "vertical"
     size_hint_y: None
-    height: dp(70)
-    padding: dp(8)
+    height: dp(90)
+    padding: [dp(14), dp(10), dp(14), dp(10)]
 
     canvas.before:
+        # Card panel background
         Color:
-            rgba: 0.95, 0.95, 0.95, 1
+            rgba: 0.09, 0.13, 0.24, 1
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [4]
+            radius: [dp(8)]
+        # Gold border
+        Color:
+            rgba: 0.89, 0.72, 0.08, 0.4
+        Line:
+            rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+            width: 1.1
 
+    # Card name
     Label:
         text: root.card_name
         bold: True
-        color: 0, 0, 0, 1
+        font_size: sp(17)
+        color: 0.92, 0.92, 0.92, 1
         size_hint_y: None
-        height: dp(24)
+        height: dp(26)
         text_size: self.width, None
         halign: "left"
 
+    # Description
     Label:
-        text: "ATK: {}  DEF: {}  COST: {}".format(root.attack, root.defense, root.cost)
-        color: 0.3, 0.3, 0.3, 1
+        text: root.description if root.description else ""
+        color: 0.53, 0.53, 0.53, 1
+        font_size: sp(12)
         size_hint_y: None
-        height: dp(20)
+        height: dp(18)
         text_size: self.width, None
         halign: "left"
+        shorten: True
+        shorten_from: "right"
+
+    # Stats row
+    BoxLayout:
+        size_hint_y: None
+        height: dp(22)
+        spacing: dp(16)
+
+        Label:
+            text: "ATK: {}".format(int(root.attack))
+            color: 0.91, 0.30, 0.24, 1
+            font_size: sp(13)
+            bold: True
+            size_hint_x: None
+            width: self.texture_size[0]
+            text_size: None, None
+
+        Label:
+            text: "DEF: {}".format(int(root.defense))
+            color: 0.20, 0.60, 0.86, 1
+            font_size: sp(13)
+            bold: True
+            size_hint_x: None
+            width: self.texture_size[0]
+            text_size: None, None
+
+        Label:
+            text: "COST: {}".format(int(root.cost))
+            color: 0.89, 0.72, 0.08, 1
+            font_size: sp(13)
+            bold: True
+            size_hint_x: None
+            width: self.texture_size[0]
+            text_size: None, None
+
+        Widget:
