@@ -17,19 +17,33 @@ Builder.load_file(str(Path(__file__).parent.parent / "kv" / "cardsscreen.kv"))
 class CardRow(RecycleDataViewBehavior, BoxLayout):
     """A single row in the cards RecycleView."""
 
+    card_db_id = NumericProperty(0)
+    tcgdex_id = StringProperty("")
     card_name = StringProperty("")
-    description = StringProperty("")
-    attack = NumericProperty(0)
-    defense = NumericProperty(0)
-    cost = NumericProperty(0)
+    card_image = StringProperty("")
 
     def refresh_view_attrs(self, rv, index, data):
+        self.card_db_id = data.get("card_db_id", 0)
+        self.tcgdex_id = data.get("tcgdex_id", "")
         self.card_name = data.get("card_name", "")
-        self.description = data.get("description", "")
-        self.attack = data.get("attack", 0)
-        self.defense = data.get("defense", 0)
-        self.cost = data.get("cost", 0)
+        self.card_image = data.get("card_image", "")
         return super().refresh_view_attrs(rv, index, data)
+
+    def delete_from_collection(self) -> None:
+        """Soft-delete this card from the collection and reload the list."""
+        session = SessionLocal()
+        try:
+            card = card_service.get_card(session, self.card_db_id)
+            if card:
+                card_service.delete_card(session, card)
+        finally:
+            session.close()
+
+        screen = self.parent
+        while screen is not None and not isinstance(screen, CardsScreen):
+            screen = screen.parent
+        if screen:
+            screen.load_cards()
 
 
 class CardsScreen(Screen):
@@ -46,11 +60,10 @@ class CardsScreen(Screen):
             cards = card_service.get_all_cards(session)
             self.ids.rv.data = [
                 {
+                    "card_db_id": card.id,
+                    "tcgdex_id": card.tcgdex_id,
                     "card_name": card.name,
-                    "description": card.description,
-                    "attack": card.attack,
-                    "defense": card.defense,
-                    "cost": card.cost,
+                    "card_image": card.image_url or "",
                 }
                 for card in cards
             ]

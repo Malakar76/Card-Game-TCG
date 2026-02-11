@@ -6,8 +6,8 @@ ScreenManager:
             pos: self.pos
             size: self.size
 
-    CreateCardScreen:
-        name: "create"
+    SearchScreen:
+        name: "search"
     CardsScreen:
         name: "cards"
 
@@ -32,22 +32,6 @@ ScreenManager:
             size: self.width, dp(2)
 
     Button:
-        text: u"+ Cr\xe9er"
-        font_size: sp(15)
-        bold: True
-        size_hint_x: 1
-        background_normal: ""
-        background_color: (0.89, 0.72, 0.08, 1) if getattr(app.root, 'current', '') == "create" else (0.06, 0.20, 0.38, 0)
-        color: (0.10, 0.10, 0.18, 1) if getattr(app.root, 'current', '') == "create" else (0.92, 0.92, 0.92, 1)
-        on_release: app.root.current = "create"
-        canvas.before:
-            Color:
-                rgba: (0.89, 0.72, 0.08, 1) if getattr(app.root, 'current', '') == "create" else (0.92, 0.92, 0.92, 0.15)
-            Line:
-                rounded_rectangle: [self.x + dp(4), self.y + dp(4), self.width - dp(8), self.height - dp(8), dp(6)]
-                width: 1.2
-
-    Button:
         text: "Collection"
         font_size: sp(15)
         bold: True
@@ -59,6 +43,22 @@ ScreenManager:
         canvas.before:
             Color:
                 rgba: (0.89, 0.72, 0.08, 1) if getattr(app.root, 'current', '') == "cards" else (0.92, 0.92, 0.92, 0.15)
+            Line:
+                rounded_rectangle: [self.x + dp(4), self.y + dp(4), self.width - dp(8), self.height - dp(8), dp(6)]
+                width: 1.2
+
+    Button:
+        text: "Recherche"
+        font_size: sp(15)
+        bold: True
+        size_hint_x: 1
+        background_normal: ""
+        background_color: (0.89, 0.72, 0.08, 1) if getattr(app.root, 'current', '') == "search" else (0.06, 0.20, 0.38, 0)
+        color: (0.10, 0.10, 0.18, 1) if getattr(app.root, 'current', '') == "search" else (0.92, 0.92, 0.92, 1)
+        on_release: app.root.current = "search"
+        canvas.before:
+            Color:
+                rgba: (0.89, 0.72, 0.08, 1) if getattr(app.root, 'current', '') == "search" else (0.92, 0.92, 0.92, 0.15)
             Line:
                 rounded_rectangle: [self.x + dp(4), self.y + dp(4), self.width - dp(8), self.height - dp(8), dp(6)]
                 width: 1.2

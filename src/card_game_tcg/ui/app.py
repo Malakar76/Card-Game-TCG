@@ -6,7 +6,7 @@ from kivy.app import App
 from kivy.lang import Builder
 
 from card_game_tcg.config import settings
-from card_game_tcg.ui.screens import CardsScreen, CreateCardScreen  # noqa: F401
+from card_game_tcg.ui.screens import CardsScreen, SearchScreen  # noqa: F401
 
 KV_DIR = Path(__file__).parent / "kv"
 

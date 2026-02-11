@@ -1,0 +1,258 @@
+<SearchScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(12)
+
+        canvas.before:
+            Color:
+                rgba: 0.10, 0.10, 0.18, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        NavBar:
+
+        Label:
+            text: "Recherche TCGdex"
+            font_size: sp(26)
+            size_hint_y: None
+            height: dp(50)
+            bold: True
+            color: 0.89, 0.72, 0.08, 1
+
+        # Search bar
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(8)
+
+            TextInput:
+                id: search_input
+                multiline: False
+                size_hint_x: 3
+                font_size: sp(15)
+                foreground_color: 0.92, 0.92, 0.92, 1
+                background_color: 0.09, 0.13, 0.24, 1
+                cursor_color: 0.89, 0.72, 0.08, 1
+                hint_text: "Nom de la carte..."
+                hint_text_color: 0.53, 0.53, 0.53, 1
+                padding: [dp(12), dp(10), dp(12), dp(10)]
+
+            Spinner:
+                id: lang_spinner
+                text: "Français"
+                values: ["Français", "English", "Deutsch", "Español", "Italiano", "日本語"]
+                size_hint_x: 1.5
+                font_size: sp(13)
+                background_normal: ""
+                background_color: 0.09, 0.13, 0.24, 1
+                color: 0.92, 0.92, 0.92, 1
+
+        Button:
+            text: "Rechercher"
+            size_hint_y: None
+            height: dp(46)
+            font_size: sp(16)
+            bold: True
+            background_normal: ""
+            background_color: 0.89, 0.72, 0.08, 1
+            color: 0.10, 0.10, 0.18, 1
+            on_release: root.search(search_input.text, lang_spinner.text)
+            canvas.before:
+                Color:
+                    rgba: 0.89, 0.72, 0.08, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]
+
+        # Status / result count
+        Label:
+            text: root.status_text
+            size_hint_y: None
+            height: dp(28)
+            font_size: sp(14)
+            color: 0.53, 0.53, 0.53, 1
+
+        RecycleView:
+            id: rv
+            viewclass: "SearchResultRow"
+            size_hint_y: 1
+
+            RecycleBoxLayout:
+                default_size: None, dp(100)
+                default_size_hint: 1, None
+                size_hint_y: None
+                height: self.minimum_height
+                orientation: "vertical"
+                spacing: dp(8)
+                padding: [dp(0), dp(4), dp(0), dp(4)]
+
+        # Pagination bar
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(12)
+
+            Button:
+                text: u"<< Pr\xe9c\xe9dent"
+                size_hint_x: 1
+                font_size: sp(14)
+                bold: True
+                background_normal: ""
+                background_color: 0.06, 0.20, 0.38, 1
+                color: 0.89, 0.72, 0.08, 1
+                on_release: root.prev_page()
+                canvas.before:
+                    Color:
+                        rgba: 0.89, 0.72, 0.08, 0.6
+                    Line:
+                        rounded_rectangle: [self.x + dp(2), self.y + dp(2), self.width - dp(4), self.height - dp(4), dp(6)]
+                        width: 1.1
+
+            Button:
+                text: "Suivant >>"
+                size_hint_x: 1
+                font_size: sp(14)
+                bold: True
+                background_normal: ""
+                background_color: 0.06, 0.20, 0.38, 1
+                color: 0.89, 0.72, 0.08, 1
+                on_release: root.next_page()
+                canvas.before:
+                    Color:
+                        rgba: 0.89, 0.72, 0.08, 0.6
+                    Line:
+                        rounded_rectangle: [self.x + dp(2), self.y + dp(2), self.width - dp(4), self.height - dp(4), dp(6)]
+                        width: 1.1
+
+<SearchResultRow>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(100)
+    padding: [dp(10), dp(8), dp(10), dp(8)]
+    spacing: dp(10)
+
+    canvas.before:
+        Color:
+            rgba: 0.09, 0.13, 0.24, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(8)]
+        Color:
+            rgba: 0.89, 0.72, 0.08, 0.4
+        Line:
+            rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+            width: 1.1
+
+    AsyncImage:
+        source: root.card_image
+        size_hint: None, 1
+        width: dp(60)
+        fit_mode: "contain"
+        opacity: 1 if root.card_image else 0
+
+    Label:
+        text: root.card_name
+        bold: True
+        font_size: sp(15)
+        color: 0.92, 0.92, 0.92, 1
+        text_size: self.width, None
+        halign: "left"
+        valign: "middle"
+
+    Button:
+        text: "OK" if root.in_collection else "+"
+        size_hint_x: None
+        width: dp(44)
+        font_size: sp(20)
+        bold: True
+        disabled: root.in_collection
+        background_normal: ""
+        background_disabled_normal: ""
+        background_color: 0.30, 0.30, 0.30, 1 if root.in_collection else 0
+        color: (0.53, 0.53, 0.53, 1) if root.in_collection else (1, 1, 1, 1)
+        on_release: root.add_to_collection()
+        canvas.before:
+            Color:
+                rgba: (0.30, 0.30, 0.30, 1) if root.in_collection else (0.18, 0.55, 0.24, 1)
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(6)]
+
+    Button:
+        text: u"D\xe9tails"
+        size_hint_x: None
+        width: dp(80)
+        font_size: sp(13)
+        bold: True
+        background_normal: ""
+        background_color: 0.06, 0.20, 0.38, 1
+        color: 0.89, 0.72, 0.08, 1
+        on_release: root.show_details()
+        canvas.before:
+            Color:
+                rgba: 0.89, 0.72, 0.08, 0.6
+            Line:
+                rounded_rectangle: [self.x + dp(2), self.y + dp(2), self.width - dp(4), self.height - dp(4), dp(6)]
+                width: 1.1
+
+<CardDetailPopup>:
+    size_hint: 0.9, 0.8
+    title_size: sp(18)
+    title_color: 0.89, 0.72, 0.08, 1
+    separator_color: 0.89, 0.72, 0.08, 0.6
+    background_color: 0.10, 0.10, 0.18, 1
+
+    BoxLayout:
+        orientation: "vertical"
+        spacing: dp(12)
+        padding: dp(16)
+
+        ScrollView:
+            size_hint_y: 1
+
+            BoxLayout:
+                orientation: "vertical"
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(12)
+
+                AsyncImage:
+                    source: root.detail_image
+                    size_hint_y: None
+                    height: dp(300) if root.detail_image else dp(0)
+                    fit_mode: "contain"
+                    opacity: 1 if root.detail_image else 0
+
+                Label:
+                    text: root.detail_text
+                    markup: True
+                    font_size: sp(14)
+                    color: 0.92, 0.92, 0.92, 1
+                    size_hint_y: None
+                    height: self.texture_size[1]
+                    text_size: self.width, None
+                    halign: "left"
+                    valign: "top"
+
+        Button:
+            text: "Fermer"
+            size_hint_y: None
+            height: dp(44)
+            font_size: sp(15)
+            bold: True
+            background_normal: ""
+            background_color: 0.89, 0.72, 0.08, 1
+            color: 0.10, 0.10, 0.18, 1
+            on_release: root.dismiss()
+            canvas.before:
+                Color:
+                    rgba: 0.89, 0.72, 0.08, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]

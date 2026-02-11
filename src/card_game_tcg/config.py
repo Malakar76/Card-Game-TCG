@@ -9,5 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Card Game TCG"
     debug: bool = False
 
+    tcgdex_language: str = "fr"
+
 
 settings = Settings()

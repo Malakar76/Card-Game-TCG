@@ -13,18 +13,18 @@ def get_all_cards(session: Session) -> list[Card]:
     return list(session.scalars(stmt).all())
 
 
-def get_card_by_name(session: Session, name: str) -> Card | None:
-    """Find a non-deleted card by exact name."""
-    stmt = select(Card).where(Card.name == name, Card.deleted_at.is_(None))
-    return session.scalars(stmt).first()
-
-
 def get_card(session: Session, card_id: int) -> Card | None:
     """Find a non-deleted card by primary key."""
     card = session.get(Card, card_id)
     if card is not None and card.is_deleted:
         return None
     return card
+
+
+def get_card_by_tcgdex_id(session: Session, tcgdex_id: str) -> Card | None:
+    """Find a non-deleted card by its TCGdex ID."""
+    stmt = select(Card).where(Card.tcgdex_id == tcgdex_id, Card.deleted_at.is_(None))
+    return session.scalars(stmt).first()
 
 
 def create_card(session: Session, data: CardCreate) -> Card:
