@@ -23,8 +23,8 @@ android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
 
-# Blacklist the built-in sqlalchemy recipe (broken URL for 2.x) so pip installs it
-p4a.extra_args = --recipe-blacklist=sqlalchemy
+# Local recipes override broken p4a sqlalchemy recipe (404 on PyPI URL for 2.x)
+p4a.local_recipes = %(source.dir)s/p4a-recipes
 
 android.permissions = INTERNET
 
