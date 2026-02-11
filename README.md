@@ -49,11 +49,28 @@ Vous pouvez aussi créer un fichier `.env` à la racine du projet.
 uv run pytest
 ```
 
+## Build Android (APK)
+
+Le projet utilise [Buildozer](https://github.com/kivy/buildozer) pour compiler l'APK Android.
+
+**En local :**
+
+```bash
+pip install buildozer cython
+buildozer android debug
+```
+
+L'APK est généré dans `bin/`.
+
+**Via GitHub Actions :**
+
+Le workflow CD se lance manuellement depuis l'onglet Actions > CD > "Run workflow". Il build l'APK et l'uploade en artifact téléchargeable.
+
 ## Structure du projet
 
 ```
 src/card_game_tcg/
-├── main.py              # Point d'entrée
+├── main.py              # Point d'entrée applicatif
 ├── config.py            # Configuration (pydantic-settings)
 ├── db/
 │   ├── session.py       # Engine SQLite, SessionLocal, init_db()
@@ -69,4 +86,6 @@ src/card_game_tcg/
     ├── app.py           # CardGameApp
     ├── screens/         # Écrans (Screen)
     └── kv/              # Fichiers .kv (layout déclaratif)
+main.py                  # Entry point Buildozer (racine)
+buildozer.spec           # Configuration Buildozer (Android)
 ```

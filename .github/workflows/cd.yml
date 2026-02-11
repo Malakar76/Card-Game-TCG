@@ -4,33 +4,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   build-apk:
     name: Build Android APK
-    needs: ci
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Buildozer global directory
-        uses: actions/cache@v4
-        with:
-          path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
-
       - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+        uses: digreatbrian/buildozer-action@v2
         with:
-          command: buildozer android debug
-          buildozer_version: stable
+          buildozer-cmd: buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: apk-debug
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: ./bin/*.apk
           retention-days: 30
