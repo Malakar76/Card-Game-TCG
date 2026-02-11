@@ -5,21 +5,28 @@ import QtQuick.Layouts
 ApplicationWindow {
     id: root
     visible: true
-    width: 800
+    width: 900
     height: 600
-    minimumWidth: 800
-    minimumHeight: 600
     title: "Card Game TCG"
 
     ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 16
+        anchors.fill: parent
 
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: "Card Game TCG"
-            font.pixelSize: 32
-            font.bold: true
+        TabBar {
+            id: tabBar
+            Layout.fillWidth: true
+
+            TabButton { text: "Créer une carte" }
+            TabButton { text: "Cartes existantes" }
+        }
+
+        StackLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            currentIndex: tabBar.currentIndex
+
+            CreateCardPage { Layout.fillWidth: true; Layout.fillHeight: true }
+            CardsPage { Layout.fillWidth: true; Layout.fillHeight: true }
         }
     }
 }

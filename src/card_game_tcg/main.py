@@ -1,20 +1,22 @@
 """Application entry point."""
 
-import asyncio
 import sys
 
-from card_game_tcg.db.connection import init_db
+from card_game_tcg.db.connection import AsyncRuntime, init_db
 from card_game_tcg.ui.app import create_app
-
-
-async def _init_backend() -> None:
-    """Initialize database connection."""
-    await init_db()
 
 
 def main() -> None:
     """Launch the application."""
-    asyncio.run(_init_backend())
+    runtime = AsyncRuntime()
+    runtime.start()
+    fut = runtime.submit(init_db())
+    fut.result()
 
-    app, _engine = create_app()
+    app, _engine = create_app(runtime=runtime)
+    app.aboutToQuit.connect(runtime.stop)
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,3 @@
-"""MongoDB connection management using Beanie and Motor."""
-
 from __future__ import annotations
 
 import asyncio
@@ -7,32 +5,10 @@ import threading
 from collections.abc import Coroutine
 from typing import Any
 
-from beanie import init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
 
-from card_game_tcg.config import settings
-from card_game_tcg.models.card import Card
+class AsyncRuntimeForTests:
+    """Async runtime for tests: one persistent event loop in a background thread."""
 
-# All Beanie document models must be listed here for initialization.
-DOCUMENT_MODELS = [
-    Card,
-]
-
-
-async def init_db() -> AsyncIOMotorClient:
-    """Initialize the MongoDB connection and Beanie ODM.
-
-    Returns the Motor client so it can be closed on shutdown.
-    """
-    client = AsyncIOMotorClient(settings.mongo_uri)
-    await init_beanie(
-        database=client[settings.mongo_db_name],
-        document_models=DOCUMENT_MODELS,
-    )
-    return client
-
-
-class AsyncRuntime:
     def __init__(self) -> None:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
@@ -41,7 +17,7 @@ class AsyncRuntime:
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None:
-            raise RuntimeError("AsyncRuntime not started")
+            raise RuntimeError("Runtime not started")
         return self._loop
 
     def start(self) -> None:
