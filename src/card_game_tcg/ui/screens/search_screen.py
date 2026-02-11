@@ -113,12 +113,16 @@ class SearchResultRow(RecycleDataViewBehavior, BoxLayout):
                     screen._mark_in_collection(self.card_id)
                 return
 
-            data = CardCreate(
-                tcgdex_id=self.card_id,
-                name=self.card_name,
-                image_url=self.card_image if self.card_image else None,
-            )
-            card_service.create_card(session, data)
+            deleted = card_service.get_deleted_card_by_tcgdex_id(session, self.card_id)
+            if deleted:
+                card_service.restore_card(session, deleted)
+            else:
+                data = CardCreate(
+                    tcgdex_id=self.card_id,
+                    name=self.card_name,
+                    image_url=self.card_image if self.card_image else None,
+                )
+                card_service.create_card(session, data)
             self.in_collection = True
             if screen:
                 screen._mark_in_collection(self.card_id)

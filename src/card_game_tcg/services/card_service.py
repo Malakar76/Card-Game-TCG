@@ -40,3 +40,27 @@ def delete_card(session: Session, card: Card) -> None:
     """Soft-delete a card."""
     card.soft_delete(session)
     session.commit()
+
+
+def get_deleted_card_by_tcgdex_id(session: Session, tcgdex_id: str) -> Card | None:
+    """Find a soft-deleted card by its TCGdex ID."""
+    stmt = select(Card).where(Card.tcgdex_id == tcgdex_id, Card.deleted_at.is_not(None))
+    return session.scalars(stmt).first()
+
+
+def get_deleted_cards(session: Session) -> list[Card]:
+    """Return all soft-deleted cards, ordered by name."""
+    stmt = select(Card).where(Card.deleted_at.is_not(None)).order_by(Card.name)
+    return list(session.scalars(stmt).all())
+
+
+def restore_card(session: Session, card: Card) -> None:
+    """Restore a soft-deleted card."""
+    card.restore(session)
+    session.commit()
+
+
+def hard_delete_card(session: Session, card: Card) -> None:
+    """Permanently delete a card from the database."""
+    session.delete(card)
+    session.commit()
