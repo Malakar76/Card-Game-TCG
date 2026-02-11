@@ -35,8 +35,13 @@ jobs:
           path: ~/.buildozer
           key: buildozer-global-${{ hashFiles('buildozer.spec') }}
 
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ~/.buildozer/android/platform/android-sdk
+
       - name: Build APK
-        run: buildozer -v android debug
+        run: yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
