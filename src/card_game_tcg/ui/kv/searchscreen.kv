@@ -166,7 +166,7 @@
     Button:
         text: "OK" if root.in_collection else "+"
         size_hint_x: None
-        width: dp(44)
+        width: dp(48)
         font_size: sp(20)
         bold: True
         disabled: root.in_collection
@@ -224,7 +224,7 @@
                 AsyncImage:
                     source: root.detail_image
                     size_hint_y: None
-                    height: dp(300) if root.detail_image else dp(0)
+                    height: min(dp(300), self.parent.width * 1.2) if root.detail_image else dp(0)
                     fit_mode: "contain"
                     opacity: 1 if root.detail_image else 0
 

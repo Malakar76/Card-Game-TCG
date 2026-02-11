@@ -1,7 +1,9 @@
 """Screen for searching cards via the TCGdex API."""
 
 from pathlib import Path
+from threading import Thread
 
+from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.uix.boxlayout import BoxLayout
@@ -47,53 +49,60 @@ class SearchResultRow(RecycleDataViewBehavior, BoxLayout):
         return super().refresh_view_attrs(rv, index, data)
 
     def show_details(self) -> None:
-        """Fetch full card details and display them in a popup."""
-        card = _client.get_card(self.card_id)
-        if card is None:
-            return
+        """Fetch full card details in a background thread, then show popup."""
+        card_id = self.card_id
 
-        lines = [
-            f"[b]{card.name}[/b]",
-            "",
-        ]
-        if card.category:
-            lines.append(f"Catégorie : {card.category}")
-        if card.rarity:
-            lines.append(f"Rareté : {card.rarity}")
-        if card.hp is not None:
-            lines.append(f"HP : {card.hp}")
-        if card.types:
-            lines.append(f"Types : {', '.join(card.types)}")
-        if card.stage:
-            lines.append(f"Stage : {card.stage}")
-        if card.evolveFrom:
-            lines.append(f"Évolue de : {card.evolveFrom}")
-        if card.description:
-            lines.append(f"\n{card.description}")
-        if card.attacks:
-            lines.append("")
-            for atk in card.attacks:
-                cost = ", ".join(atk.cost) if atk.cost else "—"
-                dmg = atk.damage if atk.damage else ""
-                lines.append(f"[b]{atk.name}[/b]  ({cost})  {dmg}")
-                if atk.effect:
-                    lines.append(f"  {atk.effect}")
-        if card.weaknesses:
-            parts = [f"{w.type} {w.value}" for w in card.weaknesses]
-            lines.append(f"\nFaiblesse : {', '.join(parts)}")
-        if card.resistances:
-            parts = [f"{r.type} {r.value}" for r in card.resistances]
-            lines.append(f"Résistance : {', '.join(parts)}")
-        if card.retreat is not None:
-            lines.append(f"Retraite : {card.retreat}")
-        if card.set:
-            lines.append(f"\nSet : {card.set.name}")
+        def _fetch() -> None:
+            card = _client.get_card(card_id)
+            if card is None:
+                return
+            Clock.schedule_once(lambda _dt: _show_popup(card))
 
-        image_url = f"{card.image}/high.png" if card.image else ""
-        popup = CardDetailPopup(
-            title=card.name, detail_text="\n".join(lines), detail_image=image_url
-        )
-        popup.open()
+        def _show_popup(card) -> None:  # type: ignore[no-untyped-def]
+            lines = [
+                f"[b]{card.name}[/b]",
+                "",
+            ]
+            if card.category:
+                lines.append(f"Catégorie : {card.category}")
+            if card.rarity:
+                lines.append(f"Rareté : {card.rarity}")
+            if card.hp is not None:
+                lines.append(f"HP : {card.hp}")
+            if card.types:
+                lines.append(f"Types : {', '.join(card.types)}")
+            if card.stage:
+                lines.append(f"Stage : {card.stage}")
+            if card.evolveFrom:
+                lines.append(f"Évolue de : {card.evolveFrom}")
+            if card.description:
+                lines.append(f"\n{card.description}")
+            if card.attacks:
+                lines.append("")
+                for atk in card.attacks:
+                    cost = ", ".join(atk.cost) if atk.cost else "—"
+                    dmg = atk.damage if atk.damage else ""
+                    lines.append(f"[b]{atk.name}[/b]  ({cost})  {dmg}")
+                    if atk.effect:
+                        lines.append(f"  {atk.effect}")
+            if card.weaknesses:
+                parts = [f"{w.type} {w.value}" for w in card.weaknesses]
+                lines.append(f"\nFaiblesse : {', '.join(parts)}")
+            if card.resistances:
+                parts = [f"{r.type} {r.value}" for r in card.resistances]
+                lines.append(f"Résistance : {', '.join(parts)}")
+            if card.retreat is not None:
+                lines.append(f"Retraite : {card.retreat}")
+            if card.set:
+                lines.append(f"\nSet : {card.set.name}")
+
+            image_url = f"{card.image}/high.png" if card.image else ""
+            popup = CardDetailPopup(
+                title=card.name, detail_text="\n".join(lines), detail_image=image_url
+            )
+            popup.open()
+
+        Thread(target=_fetch, daemon=True).start()
 
     def add_to_collection(self) -> None:
         """Add this card to the local SQLite collection."""
