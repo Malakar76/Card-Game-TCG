@@ -18,9 +18,7 @@ async def create_card(
     defense: int = 0,
     cost: int = 0,
 ) -> Card:
-    card = Card(
-        name=name, description=description, attack=attack, defense=defense, cost=cost
-    )
+    card = Card(name=name, description=description, attack=attack, defense=defense, cost=cost)
     await card.insert()
     return card
 
