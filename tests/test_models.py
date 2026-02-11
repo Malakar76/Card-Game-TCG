@@ -1,120 +1,98 @@
-"""Tests for document models."""
+"""Tests for SQLAlchemy models."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+import pytest
+from sqlalchemy.exc import IntegrityError
 
-from card_game_tcg.models import BaseDocument, Card
-
-_NOT_DELETED = {"deleted_at": None}
-
-
-def test_card_has_base_fields():
-    fields = Card.model_fields
-    assert "created_at" in fields
-    assert "updated_at" in fields
-    assert "deleted_at" in fields
+from card_game_tcg.models.card import Card
 
 
-def test_card_has_own_fields():
-    fields = Card.model_fields
-    assert "name" in fields
-    assert "description" in fields
-    assert "attack" in fields
-    assert "defense" in fields
-    assert "cost" in fields
+class TestCardColumns:
+    def test_card_has_base_columns(self, session):
+        card = Card(name="Test")
+        session.add(card)
+        session.commit()
+        session.refresh(card)
+
+        assert card.id is not None
+        assert card.created_at is not None
+        assert card.updated_at is not None
+        assert card.deleted_at is None
+
+    def test_card_has_own_columns(self, session):
+        card = Card(name="Dragon", description="Fire", attack=5, defense=3, cost=4)
+        session.add(card)
+        session.commit()
+        session.refresh(card)
+
+        assert card.name == "Dragon"
+        assert card.description == "Fire"
+        assert card.attack == 5
+        assert card.defense == 3
+        assert card.cost == 4
+
+    def test_card_defaults(self, session):
+        card = Card(name="Simple")
+        session.add(card)
+        session.commit()
+        session.refresh(card)
+
+        assert card.description == ""
+        assert card.attack == 0
+        assert card.defense == 0
+        assert card.cost == 0
 
 
-# --- Soft-delete filtering tests ---
+class TestCheckConstraints:
+    def test_negative_attack_raises(self, session):
+        card = Card(name="Bad", attack=-1)
+        session.add(card)
+        with pytest.raises(IntegrityError):
+            session.commit()
 
-_PARENT_CLS = BaseDocument.__mro__[1]
+    def test_negative_defense_raises(self, session):
+        card = Card(name="Bad", defense=-1)
+        session.add(card)
+        with pytest.raises(IntegrityError):
+            session.commit()
+
+    def test_negative_cost_raises(self, session):
+        card = Card(name="Bad", cost=-1)
+        session.add(card)
+        with pytest.raises(IntegrityError):
+            session.commit()
 
 
-def _mock_query(result: list | None = None) -> MagicMock:
-    """Create a mock query builder that supports .to_list()."""
-    query = MagicMock()
-    query.to_list = AsyncMock(return_value=result if result is not None else [])
-    return query
+class TestSoftDelete:
+    def test_soft_delete_sets_deleted_at(self, session):
+        card = Card(name="Target")
+        session.add(card)
+        session.commit()
 
+        card.soft_delete(session)
+        session.commit()
+        session.refresh(card)
 
-class TestSoftDeleteFiltering:
-    """Tests that BaseDocument overrides inject deleted_at filter."""
+        assert card.deleted_at is not None
+        assert card.is_deleted is True
 
-    def test_find_many_exists_on_base(self):
-        assert hasattr(BaseDocument, "find_many")
+    def test_restore_clears_deleted_at(self, session):
+        card = Card(name="Target")
+        session.add(card)
+        session.commit()
 
-    def test_find_one_exists_on_base(self):
-        assert hasattr(BaseDocument, "find_one")
+        card.soft_delete(session)
+        session.commit()
+        card.restore(session)
+        session.commit()
+        session.refresh(card)
 
-    def test_find_all_exists_on_base(self):
-        assert hasattr(BaseDocument, "find_all")
+        assert card.deleted_at is None
+        assert card.is_deleted is False
 
-    def test_get_exists_on_base(self):
-        assert hasattr(BaseDocument, "get")
+    def test_is_deleted_false_by_default(self, session):
+        card = Card(name="Active")
+        session.add(card)
+        session.commit()
+        session.refresh(card)
 
-    def test_find_is_find_many(self):
-        assert BaseDocument.find == BaseDocument.find_many
-
-    @patch.object(_PARENT_CLS, "find_many")
-    async def test_find_many_injects_filter(self, mock_super: MagicMock):
-        mock_super.return_value = _mock_query()
-        await Card.find_many({"name": "test"})
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED in args
-
-    @patch.object(_PARENT_CLS, "find_many")
-    async def test_find_many_include_deleted_skips_filter(self, mock_super: MagicMock):
-        mock_super.return_value = _mock_query()
-        await Card.find_many({"name": "test"}, include_deleted=True)
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED not in args
-
-    @patch.object(_PARENT_CLS, "find_one", new_callable=AsyncMock)
-    async def test_find_one_injects_filter(self, mock_super: AsyncMock):
-        mock_super.return_value = None
-        await Card.find_one({"name": "test"})
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED in args
-
-    @patch.object(_PARENT_CLS, "find_one", new_callable=AsyncMock)
-    async def test_find_one_include_deleted_skips_filter(self, mock_super: AsyncMock):
-        mock_super.return_value = None
-        await Card.find_one({"name": "test"}, include_deleted=True)
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED not in args
-
-    @patch.object(_PARENT_CLS, "find_many")
-    async def test_find_all_injects_filter(self, mock_super: MagicMock):
-        mock_super.return_value = _mock_query()
-        await Card.find_all()
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED in args
-
-    @patch.object(_PARENT_CLS, "find_many")
-    async def test_find_all_include_deleted_skips_filter(self, mock_super: MagicMock):
-        mock_super.return_value = _mock_query()
-        await Card.find_all(include_deleted=True)
-        args = mock_super.call_args[0]
-        assert _NOT_DELETED not in args
-
-    async def test_get_filters_deleted_document(self):
-        deleted_card = MagicMock(spec=Card)
-        deleted_card.deleted_at = "2024-01-01"
-
-        with patch.object(_PARENT_CLS, "get", new_callable=AsyncMock, return_value=deleted_card):
-            result = await Card.get("some-id")
-            assert result is None
-
-    async def test_get_returns_non_deleted_document(self):
-        active_card = MagicMock(spec=Card)
-        active_card.deleted_at = None
-
-        with patch.object(_PARENT_CLS, "get", new_callable=AsyncMock, return_value=active_card):
-            result = await Card.get("some-id")
-            assert result is active_card
-
-    async def test_get_include_deleted_returns_deleted_document(self):
-        deleted_card = MagicMock(spec=Card)
-        deleted_card.deleted_at = "2024-01-01"
-
-        with patch.object(_PARENT_CLS, "get", new_callable=AsyncMock, return_value=deleted_card):
-            result = await Card.get("some-id", include_deleted=True)
-            assert result is deleted_card
+        assert card.is_deleted is False

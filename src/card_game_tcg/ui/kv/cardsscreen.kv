@@ -1,0 +1,58 @@
+<CardsScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(12)
+
+        NavBar:
+
+        Label:
+            text: "Cartes existantes"
+            font_size: sp(22)
+            size_hint_y: None
+            height: dp(40)
+            bold: True
+
+        RecycleView:
+            id: rv
+            viewclass: "CardRow"
+            size_hint_y: 1
+
+            RecycleBoxLayout:
+                default_size: None, dp(70)
+                default_size_hint: 1, None
+                size_hint_y: None
+                height: self.minimum_height
+                orientation: "vertical"
+                spacing: dp(6)
+
+<CardRow>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: dp(70)
+    padding: dp(8)
+
+    canvas.before:
+        Color:
+            rgba: 0.95, 0.95, 0.95, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [4]
+
+    Label:
+        text: root.card_name
+        bold: True
+        color: 0, 0, 0, 1
+        size_hint_y: None
+        height: dp(24)
+        text_size: self.width, None
+        halign: "left"
+
+    Label:
+        text: "ATK: {}  DEF: {}  COST: {}".format(root.attack, root.defense, root.cost)
+        color: 0.3, 0.3, 0.3, 1
+        size_hint_y: None
+        height: dp(20)
+        text_size: self.width, None
+        halign: "left"

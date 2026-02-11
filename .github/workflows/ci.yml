@@ -18,18 +18,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    services:
-      mongodb:
-        image: mongo:7
-        ports:
-          - 27017:27017
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Install Qt system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libegl1
       - run: uv sync --group dev
       - run: uv run pytest
-        env:
-          TCG_MONGO_URI: mongodb://localhost:27017
-          QT_QPA_PLATFORM: offscreen

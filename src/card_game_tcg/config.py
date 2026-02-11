@@ -9,8 +9,5 @@ class Settings(BaseSettings):
     app_name: str = "Card Game TCG"
     debug: bool = False
 
-    mongo_uri: str = "mongodb://localhost:27017"
-    mongo_db_name: str = "card_game_tcg"
-
 
 settings = Settings()

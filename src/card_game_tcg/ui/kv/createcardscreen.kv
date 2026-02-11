@@ -1,0 +1,91 @@
+<CreateCardScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(12)
+
+        NavBar:
+
+        Label:
+            text: "Créer une carte"
+            font_size: sp(22)
+            size_hint_y: None
+            height: dp(40)
+            bold: True
+
+        GridLayout:
+            cols: 2
+            spacing: dp(8)
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: dp(40)
+
+            Label:
+                text: "Nom *"
+                size_hint_y: None
+                height: dp(40)
+            TextInput:
+                id: name_input
+                multiline: False
+                size_hint_y: None
+                height: dp(40)
+
+            Label:
+                text: "Description"
+                size_hint_y: None
+                height: dp(40)
+            TextInput:
+                id: description_input
+                multiline: True
+                size_hint_y: None
+                height: dp(80)
+
+            Label:
+                text: "Attaque"
+                size_hint_y: None
+                height: dp(40)
+            TextInput:
+                id: attack_input
+                text: "0"
+                input_filter: "int"
+                multiline: False
+                size_hint_y: None
+                height: dp(40)
+
+            Label:
+                text: "Défense"
+                size_hint_y: None
+                height: dp(40)
+            TextInput:
+                id: defense_input
+                text: "0"
+                input_filter: "int"
+                multiline: False
+                size_hint_y: None
+                height: dp(40)
+
+            Label:
+                text: "Coût"
+                size_hint_y: None
+                height: dp(40)
+            TextInput:
+                id: cost_input
+                text: "0"
+                input_filter: "int"
+                multiline: False
+                size_hint_y: None
+                height: dp(40)
+
+        Button:
+            text: "Créer"
+            size_hint_y: None
+            height: dp(44)
+            on_release: root.create_card(name_input.text, description_input.text, attack_input.text, defense_input.text, cost_input.text)
+
+        Label:
+            text: root.status_text
+            size_hint_y: None
+            height: dp(30)
+            color: (0.2, 0.7, 0.2, 1)
+
+        Widget:

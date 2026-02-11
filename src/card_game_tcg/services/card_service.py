@@ -1,33 +1,42 @@
 """Business logic for card operations."""
 
-from card_game_tcg.models import Card
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from card_game_tcg.models.card import Card
+from card_game_tcg.schemas.card import CardCreate
 
 
-async def get_all_cards() -> list[Card]:
-    return await Card.find_all()
+def get_all_cards(session: Session) -> list[Card]:
+    """Return all non-deleted cards, ordered by name."""
+    stmt = select(Card).where(Card.deleted_at.is_(None)).order_by(Card.name)
+    return list(session.scalars(stmt).all())
 
 
-async def get_card_by_name(name: str) -> Card | None:
-    return await Card.find_one(Card.name == name)
+def get_card_by_name(session: Session, name: str) -> Card | None:
+    """Find a non-deleted card by exact name."""
+    stmt = select(Card).where(Card.name == name, Card.deleted_at.is_(None))
+    return session.scalars(stmt).first()
 
 
-async def get_card(card_id: str) -> Card | None:
-    return await Card.get(card_id)
-
-
-async def create_card(
-    name: str,
-    description: str = "",
-    attack: int = 0,
-    defense: int = 0,
-    cost: int = 0,
-) -> Card:
-    card = Card(
-        name=name, description=description, attack=attack, defense=defense, cost=cost
-    )
-    await card.insert()
+def get_card(session: Session, card_id: int) -> Card | None:
+    """Find a non-deleted card by primary key."""
+    card = session.get(Card, card_id)
+    if card is not None and card.is_deleted:
+        return None
     return card
 
 
-async def delete_card(card: Card) -> None:
-    await card.soft_delete()
+def create_card(session: Session, data: CardCreate) -> Card:
+    """Create and persist a new card."""
+    card = Card(**data.model_dump())
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return card
+
+
+def delete_card(session: Session, card: Card) -> None:
+    """Soft-delete a card."""
+    card.soft_delete(session)
+    session.commit()

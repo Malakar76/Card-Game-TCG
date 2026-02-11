@@ -49,5 +49,8 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Qt
-*.ui.bak
+# SQLite
+*.db
+
+# Kivy
+*.kv.bak
