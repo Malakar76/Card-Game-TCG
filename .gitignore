@@ -54,3 +54,7 @@ htmlcov/
 
 # Kivy
 *.kv.bak
+
+# Buildozer
+.buildozer/
+bin/
