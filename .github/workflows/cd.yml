@@ -2,6 +2,11 @@ name: CD
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag for the release (e.g. v0.1.0). Leave empty to skip release."
+        required: false
+        default: ""
 
 jobs:
   build-apk:
@@ -49,3 +54,27 @@ jobs:
           name: apk-debug
           path: ./bin/*.apk
           retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: build-apk
+    if: inputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          files: "*.apk"
+          generate_release_notes: true
