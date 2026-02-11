@@ -23,6 +23,9 @@ android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
 
+# Blacklist the built-in sqlalchemy recipe (broken URL for 2.x) so pip installs it
+p4a.extra_args = --recipe-blacklist=sqlalchemy
+
 # Uncomment to enable network access
 # android.permissions = INTERNET
 
