@@ -7,7 +7,7 @@ from pythonforandroid.recipe import PythonRecipe
 class PydanticRecipe(PythonRecipe):
     """Pydantic v2 recipe: pure Python, copy source directly."""
 
-    version = "2.10.6"
+    version = "2.12.5"
     url = "https://github.com/pydantic/pydantic/archive/refs/tags/v{version}.zip"
     depends = ["python3"]
     call_hostpython_via_targetpython = False

@@ -12,7 +12,7 @@ source.exclude_patterns = buildozer.spec,pyproject.toml,alembic.ini,*.egg-info
 
 version = 0.1.0
 
-requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.10.6,pydantic-settings,pydantic-core,annotated-types,typing-extensions,dotenv
+requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.12.5,pydantic-settings,pydantic-core==2.41.5,annotated-types,typing-extensions,typing-inspection,dotenv
 
 orientation = portrait
 fullscreen = 0
