@@ -1,33 +1,26 @@
-import sh
-from pythonforandroid.logger import shprint
+import shutil
+from os.path import exists, join
+
 from pythonforandroid.recipe import PythonRecipe
 
 
 class PydanticRecipe(PythonRecipe):
-    """Pydantic v2 recipe using pip (pyproject.toml, no setup.py)."""
+    """Pydantic v2 recipe: pure Python, copy source directly."""
 
     version = "2.10.6"
     url = "https://github.com/pydantic/pydantic/archive/refs/tags/v{version}.zip"
-    depends = ["python3", "setuptools"]
+    depends = ["python3"]
     call_hostpython_via_targetpython = False
     site_packages_name = "pydantic"
 
     def install_python_package(self, arch, name=None, env=None, is_dir=True):
-        env = env or self.get_recipe_env(arch)
-        hostpython = sh.Command(self.hostpython_location)
+        # Pydantic v2 is pure Python - copy the package directly
+        src_dir = join(self.get_build_dir(arch.arch), "pydantic")
         install_dir = self.ctx.get_python_install_dir(arch.arch)
-        # Install from PyPI wheel (pure Python, no compilation needed)
-        shprint(
-            hostpython,
-            "-m",
-            "pip",
-            "install",
-            "--no-deps",
-            "--target",
-            install_dir,
-            f"pydantic=={self.version}",
-            _env=env,
-        )
+        dst_dir = join(install_dir, "pydantic")
+        if exists(dst_dir):
+            shutil.rmtree(dst_dir)
+        shutil.copytree(src_dir, dst_dir)
 
 
 recipe = PydanticRecipe()
