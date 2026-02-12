@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _SUFFIX_PATTERN = re.compile(
     r"\s*[-–—]?\s*(?:VMAX|VSTAR|GX|EX|ex|V)\s*$",
@@ -34,7 +37,7 @@ def is_available() -> bool:
     return False
 
 
-def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
+def recognize_text_from_file(path: str | Path, rotation: int = 0, *, mirror: bool = False) -> str:
     """Run OCR on an image file and return the extracted text.
 
     Uses Google ML Kit on Android, EasyOCR on desktop (pytesseract as fallback).
@@ -42,6 +45,7 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
     Args:
         path: Path to the image file.
         rotation: Extra rotation in degrees (0/90/180/270) to apply before OCR.
+        mirror: If True, flip the image horizontally before OCR.
     """
     path = str(path)
 
@@ -57,7 +61,7 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
     try:
         import easyocr
 
-        return _recognize_easyocr(easyocr, path, rotation)
+        return _recognize_easyocr(easyocr, path, rotation, mirror=mirror)
     except ImportError:
         pass
 
@@ -67,7 +71,7 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
         from PIL import Image
 
         img = Image.open(path)
-        img = _auto_rotate(img, rotation)
+        img = _apply_transforms(img, rotation, mirror=mirror)
         return pytesseract.image_to_string(img)
     except ImportError:
         pass
@@ -86,14 +90,20 @@ def _get_easyocr_reader(easyocr: object) -> object:
     return _easyocr_reader
 
 
-def _recognize_easyocr(easyocr: object, path: str, rotation: int = 0) -> str:
+def _recognize_easyocr(
+    easyocr: object, path: str, rotation: int = 0, *, mirror: bool = False
+) -> str:
     """Perform OCR using EasyOCR."""
     from PIL import Image
 
     img = Image.open(path)
-    img = _auto_rotate(img, rotation)
+    img = _apply_transforms(img, rotation, mirror=mirror)
 
-    # Save processed image to a temp file for EasyOCR (it expects a file path or numpy array)
+    # Debug: save a copy of the transformed image for visual inspection
+    debug_path = Path(path).parent / "debug_capture.png"
+    img.save(str(debug_path))  # type: ignore[union-attr]
+    logger.info("Debug image saved to %s", debug_path)
+
     import numpy as np
 
     img_array = np.array(img.convert("RGB"))
@@ -105,15 +115,19 @@ def _recognize_easyocr(easyocr: object, path: str, rotation: int = 0) -> str:
     return "\n".join(text for _, text, _ in results)
 
 
-def _auto_rotate(img: object, rotation: int = 0) -> object:
+def _apply_transforms(img: object, rotation: int = 0, *, mirror: bool = False) -> object:
     """Fix image orientation for OCR.
 
-    Applies an explicit rotation to compensate for webcam orientation
-    on desktop. Skips EXIF handling since camera4kivy saves raw textures
-    without meaningful EXIF orientation data.
+    Applies rotation and optional horizontal flip to compensate for
+    webcam orientation on desktop. Skips EXIF handling since camera4kivy
+    saves raw textures without meaningful EXIF orientation data.
     """
+    from PIL import Image
+
     if rotation:
         img = img.rotate(rotation, expand=True)  # type: ignore[union-attr]
+    if mirror:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)  # type: ignore[union-attr]
     return img
 
 

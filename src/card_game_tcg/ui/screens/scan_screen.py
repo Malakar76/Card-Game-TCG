@@ -147,29 +147,33 @@ class ScanScreen(Screen):
     def _run_ocr(self, file_path: str) -> None:
         """Run OCR on the captured image (called in background thread)."""
         try:
-            # Desktop webcam saves landscape frames; rotate 270° for OCR.
+            # Desktop webcam saves landscape frames; rotate 90° CCW for OCR.
+            # Desktop capture is also mirrored (front-facing webcam).
             # On Android, CameraX handles orientation natively.
             rotation = 0 if _is_android else 90
-            raw_text = ocr_service.recognize_text_from_file(file_path, rotation)
+            mirror = not _is_android
+            raw_text = ocr_service.recognize_text_from_file(file_path, rotation, mirror=mirror)
             name = ocr_service.extract_pokemon_name(raw_text)
-            Clock.schedule_once(lambda _dt: self._on_ocr_result(name, raw_text))
+            debug_path = str(Path(file_path).parent / "debug_capture.png")
+            Clock.schedule_once(lambda _dt: self._on_ocr_result(name, raw_text, debug_path))
         except Exception as err:
             msg = str(err)
             Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
 
-    def _on_ocr_result(self, name: str | None, raw_text: str) -> None:
+    def _on_ocr_result(self, name: str | None, raw_text: str, debug_path: str = "") -> None:
         """Handle OCR result on the main thread."""
         self.is_loading = False
+        debug_info = f"\n[Debug] {debug_path}" if debug_path else ""
         if name:
             self.pokemon_name = name
-            self.status_text = "Pokémon détecté !"
+            self.status_text = f"Pokémon détecté !{debug_info}"
         else:
             self.pokemon_name = ""
             preview = raw_text[:80] if raw_text else ""
             if preview:
-                self.status_text = f"Aucun nom détecté. Texte : {preview}"
+                self.status_text = f"Aucun nom détecté. Texte : {preview}{debug_info}"
             else:
-                self.status_text = "Aucun texte détecté"
+                self.status_text = f"Aucun texte détecté{debug_info}"
 
     def _on_ocr_error(self, error: str) -> None:
         """Handle OCR error on the main thread."""
