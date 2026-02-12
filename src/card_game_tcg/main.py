@@ -1,9 +1,14 @@
 """Application entry point."""
 
+import os
 from pathlib import Path
+
+import certifi
 
 from card_game_tcg.db.session import init_db
 from card_game_tcg.ui.app import CardGameApp
+
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 DB_FILENAME = "card_game_tcg.db"
 
