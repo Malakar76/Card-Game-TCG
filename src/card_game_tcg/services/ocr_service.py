@@ -13,15 +13,38 @@ _SUFFIX_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# ---------------------------------------------------------------------------
+# Eagerly resolve ML Kit Java classes on the main thread.
+#
+# pyjnius's autoclass() uses JNI FindClass() which, on background threads,
+# falls back to the system class loader that cannot see the app's DEX files.
+# By resolving all classes here (module load happens on the main thread),
+# the cached references remain valid when used later from a worker thread.
+# ---------------------------------------------------------------------------
+_mlkit_classes: dict[str, object] | None = None
+
+try:
+    from jnius import autoclass as _autoclass
+
+    _mlkit_classes = {
+        "InputImage": _autoclass("com.google.mlkit.vision.common.InputImage"),
+        "TextRecognition": _autoclass("com.google.mlkit.vision.text.TextRecognition"),
+        "TextRecognizerOptions": _autoclass(
+            "com.google.mlkit.vision.text.latin.TextRecognizerOptions"
+        ),
+        "BitmapFactory": _autoclass("android.graphics.BitmapFactory"),
+        "Tasks": _autoclass("com.google.android.gms.tasks.Tasks"),
+        "TimeUnit": _autoclass("java.util.concurrent.TimeUnit"),
+    }
+    logger.info("ML Kit classes resolved on main thread")
+except Exception:
+    _mlkit_classes = None
+
 
 def is_available() -> bool:
     """Return True if an OCR backend is available on this platform."""
-    try:
-        from jnius import autoclass  # noqa: F401
-
+    if _mlkit_classes is not None:
         return True
-    except ImportError:
-        pass
     try:
         import easyocr  # noqa: F401
 
@@ -58,13 +81,9 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
     """
     path = str(path)
 
-    # Android: ML Kit text recognition
-    try:
-        from jnius import autoclass
-
-        return _recognize_mlkit(autoclass, path)
-    except ImportError:
-        pass
+    # Android: ML Kit text recognition (classes resolved at import time)
+    if _mlkit_classes is not None:
+        return _recognize_mlkit(_mlkit_classes, path)
 
     # Desktop: EasyOCR (preferred – better accuracy on card photos)
     try:
@@ -129,41 +148,42 @@ def _apply_rotation(img: object, rotation: int = 0) -> object:
     return img
 
 
-def _recognize_mlkit(autoclass: object, path: str) -> str:
+def _recognize_mlkit(classes: dict[str, object], path: str) -> str:
     """Perform OCR using Google ML Kit via pyjnius.
 
     Uses the synchronous ``Tasks.await()`` API instead of async listeners,
     since pyjnius cannot implement Java listener interfaces directly.
     Must be called from a background thread (not the Android main thread).
+
+    All Java class references are resolved once on the main thread (at module
+    import) and passed in via *classes* to avoid the pyjnius ClassLoader bug
+    where ``autoclass()`` on background threads uses the wrong ClassLoader.
     """
-    logger.info("ML Kit OCR: loading classes")
-    input_image_cls = autoclass("com.google.mlkit.vision.common.InputImage")  # type: ignore[operator]
-    text_recognition_cls = autoclass(  # type: ignore[operator]
-        "com.google.mlkit.vision.text.TextRecognition"
-    )
-    text_options_cls = autoclass(  # type: ignore[operator]
-        "com.google.mlkit.vision.text.latin.TextRecognizerOptions"
-    )
-    bitmap_factory_cls = autoclass("android.graphics.BitmapFactory")  # type: ignore[operator]
-    tasks_cls = autoclass("com.google.android.gms.tasks.Tasks")  # type: ignore[operator]
-    timeunit_cls = autoclass("java.util.concurrent.TimeUnit")  # type: ignore[operator]
+    bitmap_factory = classes["BitmapFactory"]
+    input_image = classes["InputImage"]
+    text_recognition = classes["TextRecognition"]
+    text_options = classes["TextRecognizerOptions"]
+    tasks = classes["Tasks"]
+    timeunit = classes["TimeUnit"]
 
     logger.info("ML Kit OCR: decoding bitmap from %s", path)
-    bitmap = bitmap_factory_cls.decodeFile(path)
+    bitmap = bitmap_factory.decodeFile(path)  # type: ignore[union-attr]
     if bitmap is None:
         logger.warning("ML Kit OCR: bitmap is None for %s", path)
         return ""
 
     logger.info("ML Kit OCR: creating InputImage and recognizer")
-    image = input_image_cls.fromBitmap(bitmap, 0)
-    recognizer = text_recognition_cls.getClient(text_options_cls.Builder().build())
+    image = input_image.fromBitmap(bitmap, 0)  # type: ignore[union-attr]
+    recognizer = text_recognition.getClient(  # type: ignore[union-attr]
+        text_options.Builder().build()  # type: ignore[union-attr]
+    )
 
     logger.info("ML Kit OCR: calling recognizer.process()")
     task = recognizer.process(image)
     # Tasks.await() blocks until the task completes (must not be on main thread)
-    tasks_await = getattr(tasks_cls, "await")  # 'await' is a Python keyword
+    tasks_await = getattr(tasks, "await")  # 'await' is a Python keyword
     logger.info("ML Kit OCR: waiting for result (timeout 15s)")
-    result = tasks_await(task, 15, timeunit_cls.SECONDS)
+    result = tasks_await(task, 15, timeunit.SECONDS)  # type: ignore[union-attr]
     text = str(result.getText()) if result else ""
     logger.info("ML Kit OCR: result text=%r", text[:100] if text else "")
     return text
