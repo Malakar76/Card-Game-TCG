@@ -27,8 +27,10 @@ def before_apk_build(toolchain):
     required_depends = ['androidx.camera:camera-core:1.2.1',
                         'androidx.camera:camera-camera2:1.2.1',
                         'androidx.camera:camera-lifecycle:1.2.1',
-                        'androidx.lifecycle:lifecycle-process:2.5.1',  
-                        'androidx.core:core:1.9.0']    
+                        'androidx.lifecycle:lifecycle-process:2.5.1',
+                        'androidx.core:core:1.9.0',
+                        'com.google.mlkit:text-recognition:16.0.1',
+                        'com.google.android.gms:play-services-tasks:18.0.2']
     existing_depends = []
     read_next = False
     for ua in unprocessed_args:
