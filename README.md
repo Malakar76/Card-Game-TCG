@@ -51,7 +51,7 @@ L'application intègre un scanner qui utilise la caméra pour identifier les car
 - **Desktop** : [EasyOCR](https://github.com/JaidedAI/EasyOCR) (reconnaissance FR/EN), pytesseract en fallback
 - **Android** : Google ML Kit (via pyjnius)
 
-Le scanner capture une photo, extrait le texte par OCR, puis identifie le nom du Pokémon en filtrant les suffixes (EX, GX, VMAX, VSTAR, V, ex). Une fois le Pokémon identifié, l'application affiche sa famille d'évolution complète via l'API TCGdex.
+Le scanner capture une photo, extrait le texte par OCR, puis identifie le nom du Pokémon en filtrant les suffixes (EX, GX, VMAX, VSTAR, V, ex). Les noms sont automatiquement traduits en français : si une carte anglaise, allemande, espagnole ou italienne est scannée, le nom est converti via l'API TCGdex. Une fois le Pokémon identifié, l'application affiche sa famille d'évolution complète.
 
 Le modèle OCR est pré-chargé en arrière-plan dès l'ouverture de l'écran scanner pour réduire le temps du premier scan.
 

@@ -16,7 +16,6 @@ from kivy.uix.screenmanager import Screen
 from tcgdexsdk import Language
 
 from card_game_tcg.clients import TCGDEX
-from card_game_tcg.ui.constants import LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,6 @@ class EvolutionScreen(Screen):
     """Screen that displays the full evolution family of a Pokémon."""
 
     pokemon_name = StringProperty("")
-    selected_language = StringProperty("Français")
     status_text = StringProperty("")
     is_loading = BooleanProperty(False)
     chain_data = ListProperty([])
@@ -63,19 +61,11 @@ class EvolutionScreen(Screen):
         self.status_text = "Recherche de la famille d'évolution..."
         self.chain_data = []
 
-        language = self._get_language()
         Thread(
             target=self._resolve_chain,
-            args=(self.pokemon_name, language, request_id),
+            args=(self.pokemon_name, Language.FR, request_id),
             daemon=True,
         ).start()
-
-    def _get_language(self) -> Language:
-        """Resolve the selected language label to a ``Language`` enum."""
-        for label, lang in LANGUAGES:
-            if label == self.selected_language:
-                return lang
-        return Language.FR
 
     def go_back(self) -> None:
         """Navigate back to the scan screen."""

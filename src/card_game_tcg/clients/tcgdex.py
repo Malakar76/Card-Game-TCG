@@ -33,6 +33,11 @@ class TCGDEX:
         query = Query().equal("name", name)
         return self.sdk.card.listSync(query)
 
+    def get_card_in_language(self, card_id: str, language: Language) -> Card | None:
+        """Fetch a card by ID in a specific language."""
+        self.sdk.setLanguage(language)
+        return self.sdk.card.getSync(card_id)
+
     def search_by_evolve_from(self, name: str, language: Language) -> list[CardResume]:
         """Find cards that evolve from the given Pokémon name."""
         self.sdk.setLanguage(language)

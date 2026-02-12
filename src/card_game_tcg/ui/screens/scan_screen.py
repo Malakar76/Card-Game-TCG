@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -17,7 +18,6 @@ from tcgdexsdk import Language
 
 from card_game_tcg.clients import TCGDEX
 from card_game_tcg.services import ocr_service
-from card_game_tcg.ui.constants import LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,48 @@ _client = TCGDEX()
 
 _ocr_warmed_up = False
 
+_TARGET_LANGUAGE = Language.FR
+_FALLBACK_LANGUAGES: tuple[Language, ...] = (
+    Language.FR,
+    Language.EN,
+    Language.DE,
+    Language.ES,
+    Language.IT,
+)
+
+_CARD_SUFFIX = re.compile(
+    r"\s*[-–—]?\s*(?:VMAX|VSTAR|GX|EX|ex|V|BREAK|TURBO)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _strip_card_suffix(name: str) -> str:
+    """Strip TCG variant suffixes from a card name."""
+    return _CARD_SUFFIX.sub("", name).strip()
+
+
+def _validate_and_translate(client: TCGDEX, name: str, target_language: Language) -> str | None:
+    """Validate a candidate name via TCGdex with language fallback.
+
+    Tries ``target_language`` first, then falls back to other languages.
+    When found in a fallback language, translates the name to
+    ``target_language`` using the card ID.
+    """
+    for lang in _FALLBACK_LANGUAGES:
+        try:
+            results = client.search_cards_by_name(name, lang, page_size=1)
+        except Exception:
+            continue
+        if not results:
+            continue
+        if lang == target_language:
+            return name
+        # Found in fallback → translate to target language
+        card = client.get_card_in_language(results[0].id, target_language)
+        if card and card.name:
+            return _strip_card_suffix(card.name)
+    return None
+
 
 class ScanScreen(Screen):
     """Screen that uses the camera to scan and identify Pokémon cards."""
@@ -45,7 +87,6 @@ class ScanScreen(Screen):
     pokemon_name = StringProperty("")
     is_loading = BooleanProperty(False)
     preview_label = StringProperty("Caméra non disponible")
-    selected_language = StringProperty("Français")
 
     _preview: object | None = None
     _capture_dir: str = ""
@@ -260,18 +301,10 @@ class ScanScreen(Screen):
             daemon=True,
         ).start()
 
-    def _get_language(self) -> Language:
-        """Resolve the selected language label to a ``Language`` enum."""
-        for label, lang in LANGUAGES:
-            if label == self.selected_language:
-                return lang
-        return Language.FR
-
     def _run_ocr(self, file_path: str) -> None:
         """Run OCR on the captured image and validate via TCGdex."""
         try:
             rotation = 0 if _is_android else 270
-            language = self._get_language()
 
             Clock.schedule_once(lambda _dt: self._update_status("Analyse OCR..."))
 
@@ -285,12 +318,9 @@ class ScanScreen(Screen):
                 return
 
             for name in candidates:
-                try:
-                    results = _client.search_cards_by_name(name, language, page_size=1)
-                except Exception:
-                    results = []
-                if results:
-                    Clock.schedule_once(lambda _dt, n=name: self._on_ocr_result(n, raw_text))
+                validated = _validate_and_translate(_client, name, _TARGET_LANGUAGE)
+                if validated:
+                    Clock.schedule_once(lambda _dt, n=validated: self._on_ocr_result(n, raw_text))
                     return
 
             # No candidate validated – fall back to first candidate
@@ -328,7 +358,6 @@ class ScanScreen(Screen):
         """Navigate to the evolution screen for the detected Pokémon."""
         evolution_screen = self.manager.get_screen("evolution")
         evolution_screen.pokemon_name = name
-        evolution_screen.selected_language = self.selected_language
         self.manager.current = "evolution"
 
     def _on_ocr_error(self, error: str) -> None:
