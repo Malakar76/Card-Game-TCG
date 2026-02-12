@@ -21,6 +21,18 @@
             bold: True
             color: 0.89, 0.72, 0.08, 1
 
+        Spinner:
+            id: lang_spinner
+            text: root.selected_language
+            values: ["Français", "English", "Deutsch", "Español", "Italiano", "日本語"]
+            size_hint_y: None
+            height: dp(44)
+            font_size: sp(13)
+            background_normal: ""
+            background_color: 0.09, 0.13, 0.24, 1
+            color: 0.92, 0.92, 0.92, 1
+            on_text: root.selected_language = self.text
+
         # Camera preview area
         BoxLayout:
             id: preview_container

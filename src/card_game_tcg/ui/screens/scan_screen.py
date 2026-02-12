@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -11,8 +13,13 @@ from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.uix.screenmanager import Screen
+from tcgdexsdk import Language
 
+from card_game_tcg.clients import TCGDEX
 from card_game_tcg.services import ocr_service
+from card_game_tcg.ui.constants import LANGUAGES
+
+logger = logging.getLogger(__name__)
 
 Builder.load_file(str(Path(__file__).parent.parent / "kv" / "scanscreen.kv"))
 
@@ -26,6 +33,10 @@ except ImportError:
 
 _is_android = "android" in sys.modules or hasattr(sys, "getandroidapilevel")
 
+_MAX_OCR_ATTEMPTS = 3
+
+_client = TCGDEX()
+
 
 class ScanScreen(Screen):
     """Screen that uses the camera to scan and identify Pokémon cards."""
@@ -34,6 +45,7 @@ class ScanScreen(Screen):
     pokemon_name = StringProperty("")
     is_loading = BooleanProperty(False)
     preview_label = StringProperty("Caméra non disponible")
+    selected_language = StringProperty("Français")
 
     _preview: object | None = None
     _capture_dir: str = ""
@@ -81,7 +93,7 @@ class ScanScreen(Screen):
         if self._preview is not None:
             return
 
-        self._capture_dir = tempfile.mkdtemp()
+        self._capture_dir = self._get_capture_dir()
 
         try:
             from camera4kivy import Preview
@@ -92,24 +104,43 @@ class ScanScreen(Screen):
             container.remove_widget(placeholder)
             container.add_widget(preview)
 
-            # mirrored=False: scanning a card, not a selfie
-            # filepath_callback: receive actual saved file path
-            try:
-                preview.connect_camera(
-                    enable_analyze_pixels=False,
-                    facing="back",
-                    mirrored=False,
-                    filepath_callback=self._on_capture_complete,
-                )
-            except Exception:
-                preview.connect_camera(
-                    mirrored=False,
-                    filepath_callback=self._on_capture_complete,
-                )
+            # Connect camera one frame later so the widget has a valid size.
+            # On Android, CameraX needs the layout to be resolved first.
+            Clock.schedule_once(lambda _dt: self._connect_camera(), 0)
 
             self.preview_label = ""
         except Exception as exc:
             self.status_text = f"Erreur caméra : {exc}"
+
+    def _connect_camera(self) -> None:
+        """Connect the camera after the Preview widget has been laid out."""
+        if self._preview is None:
+            return
+        try:
+            self._preview.connect_camera(  # type: ignore[union-attr]
+                enable_analyze_pixels=False,
+                facing="back",
+                mirrored=False,
+                filepath_callback=self._on_capture_complete,
+            )
+        except TypeError:
+            # Older camera4kivy versions may not support all kwargs
+            self._preview.connect_camera(  # type: ignore[union-attr]
+                mirrored=False,
+                filepath_callback=self._on_capture_complete,
+            )
+
+    @staticmethod
+    def _get_capture_dir() -> str:
+        """Return a writable directory for photo capture."""
+        if _is_android:
+            # On Android, use the app's private storage (writable by Java CameraX)
+            private = os.environ.get("ANDROID_PRIVATE", "")
+            if private:
+                capture = os.path.join(private, "capture")
+                os.makedirs(capture, exist_ok=True)
+                return capture
+        return tempfile.mkdtemp()
 
     def analyze(self) -> None:
         """Capture a photo and run OCR in a background thread."""
@@ -134,46 +165,118 @@ class ScanScreen(Screen):
 
     def _on_capture_complete(self, file_path: str) -> None:
         """Called by camera4kivy when the photo has been saved."""
-        if not file_path or not Path(file_path).exists():
-            Clock.schedule_once(lambda _dt: self._on_ocr_error("Fichier capturé introuvable"))
+        logger.info("filepath_callback received: %r", file_path)
+
+        # If callback path is valid, use it directly
+        if file_path and Path(file_path).exists():
+            self._start_ocr(file_path)
             return
 
+        # Fallback: scan capture dir for newest image (CameraX may not
+        # return the path through the callback on all devices)
+        found = self._find_latest_capture()
+        if found:
+            logger.info("Found capture via directory scan: %s", found)
+            self._start_ocr(found)
+            return
+
+        msg = f"Fichier introuvable (callback={file_path!r}, dir={self._capture_dir})"
+        logger.warning(msg)
+        Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
+
+    def _find_latest_capture(self) -> str | None:
+        """Find the most recently modified image in the capture directory."""
+        if not self._capture_dir:
+            return None
+        capture_dir = Path(self._capture_dir)
+        if not capture_dir.exists():
+            return None
+        images = sorted(
+            capture_dir.glob("*.jpg"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not images:
+            # Also try png
+            images = sorted(
+                capture_dir.glob("*.png"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+        return str(images[0]) if images else None
+
+    def _start_ocr(self, file_path: str) -> None:
+        """Launch OCR processing in a background thread."""
         Thread(
             target=self._run_ocr,
             args=(file_path,),
             daemon=True,
         ).start()
 
+    def _get_language(self) -> Language:
+        """Resolve the selected language label to a ``Language`` enum."""
+        for label, lang in LANGUAGES:
+            if label == self.selected_language:
+                return lang
+        return Language.FR
+
     def _run_ocr(self, file_path: str) -> None:
-        """Run OCR on the captured image (called in background thread)."""
+        """Run OCR on the captured image and validate via TCGdex."""
         try:
-            # Desktop webcam saves landscape frames; rotate 90° CCW for OCR.
-            # Desktop capture is also mirrored (front-facing webcam).
-            # On Android, CameraX handles orientation natively.
-            rotation = 0 if _is_android else 90
-            mirror = not _is_android
-            raw_text = ocr_service.recognize_text_from_file(file_path, rotation, mirror=mirror)
-            name = ocr_service.extract_pokemon_name(raw_text)
-            debug_path = str(Path(file_path).parent / "debug_capture.png")
-            Clock.schedule_once(lambda _dt: self._on_ocr_result(name, raw_text, debug_path))
+            rotation = 0 if _is_android else 270
+            language = self._get_language()
+
+            for attempt in range(1, _MAX_OCR_ATTEMPTS + 1):
+                Clock.schedule_once(
+                    lambda _dt, a=attempt: self._update_status(
+                        f"Analyse OCR (tentative {a}/{_MAX_OCR_ATTEMPTS})..."
+                    )
+                )
+
+                raw_text = ocr_service.recognize_text_from_file(file_path, rotation)
+                candidates = ocr_service.extract_pokemon_candidates(raw_text)
+
+                if not candidates:
+                    continue
+
+                for name in candidates:
+                    try:
+                        results = _client.search_cards_by_name(name, language, page_size=1)
+                    except Exception:
+                        results = []
+                    if results:
+                        Clock.schedule_once(lambda _dt, n=name: self._on_ocr_result(n, raw_text))
+                        return
+
+            # All attempts exhausted – fall back to first candidate if any
+            fallback = candidates[0] if candidates else None
+            Clock.schedule_once(
+                lambda _dt: self._on_ocr_result(fallback, raw_text, validated=False)
+            )
         except Exception as err:
             msg = str(err)
             Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
 
-    def _on_ocr_result(self, name: str | None, raw_text: str, debug_path: str = "") -> None:
+    def _update_status(self, text: str) -> None:
+        """Update the status label (must be called on the main thread)."""
+        self.status_text = text
+
+    def _on_ocr_result(self, name: str | None, raw_text: str, *, validated: bool = True) -> None:
         """Handle OCR result on the main thread."""
         self.is_loading = False
-        debug_info = f"\n[Debug] {debug_path}" if debug_path else ""
-        if name:
+        if name and validated:
             self.pokemon_name = name
-            self.status_text = f"Pokémon détecté !{debug_info}"
+            self.status_text = "Pokémon validé via TCGdex !"
+        elif name:
+            self.pokemon_name = name
+            self.status_text = "Nom détecté (non validé par TCGdex)"
         else:
             self.pokemon_name = ""
             preview = raw_text[:80] if raw_text else ""
             if preview:
-                self.status_text = f"Aucun nom détecté. Texte : {preview}{debug_info}"
+                self.status_text = f"Aucun nom détecté. Texte : {preview}"
             else:
-                self.status_text = f"Aucun texte détecté{debug_info}"
+                self.status_text = "Aucun texte détecté"
 
     def _on_ocr_error(self, error: str) -> None:
         """Handle OCR error on the main thread."""

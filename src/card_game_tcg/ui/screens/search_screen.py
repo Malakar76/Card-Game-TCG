@@ -16,17 +16,9 @@ from card_game_tcg.clients import TCGDEX
 from card_game_tcg.db.session import SessionLocal
 from card_game_tcg.schemas.card import CardCreate
 from card_game_tcg.services import card_service
+from card_game_tcg.ui.constants import LANGUAGES
 
 Builder.load_file(str(Path(__file__).parent.parent / "kv" / "searchscreen.kv"))
-
-LANGUAGES: list[tuple[str, Language]] = [
-    ("Français", Language.FR),
-    ("English", Language.EN),
-    ("Deutsch", Language.DE),
-    ("Español", Language.ES),
-    ("Italiano", Language.IT),
-    ("日本語", Language.JA),
-]
 
 PAGE_SIZE = 20
 

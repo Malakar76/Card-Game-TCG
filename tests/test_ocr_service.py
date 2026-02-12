@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from card_game_tcg.services.ocr_service import extract_pokemon_name, is_available
+from card_game_tcg.services.ocr_service import (
+    extract_pokemon_candidates,
+    extract_pokemon_name,
+    is_available,
+)
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -75,6 +79,42 @@ def test_none_returns_none() -> None:
 def test_is_available_returns_bool() -> None:
     result = is_available()
     assert isinstance(result, bool)
+
+
+# --- extract_pokemon_candidates tests ---
+
+
+def test_candidates_returns_all_names() -> None:
+    text = "100\nDracaufeu VMAX\nAttaque Feu\n200"
+    candidates = extract_pokemon_candidates(text)
+    assert candidates == ["Dracaufeu", "Attaque Feu"]
+
+
+def test_candidates_strips_suffixes() -> None:
+    text = "Pikachu EX\nMew V\n50"
+    candidates = extract_pokemon_candidates(text)
+    assert candidates == ["Pikachu", "Mew"]
+
+
+def test_candidates_empty_text() -> None:
+    assert extract_pokemon_candidates("") == []
+
+
+def test_candidates_only_numbers() -> None:
+    assert extract_pokemon_candidates("120\n30\n50") == []
+
+
+def test_candidates_no_duplicates() -> None:
+    text = "Pikachu\nPikachu EX"
+    candidates = extract_pokemon_candidates(text)
+    assert candidates == ["Pikachu"]
+
+
+def test_candidates_first_matches_extract_name() -> None:
+    text = "100\nDracaufeu VMAX\nAttaque Feu\n200"
+    candidates = extract_pokemon_candidates(text)
+    name = extract_pokemon_name(text)
+    assert candidates[0] == name
 
 
 # --- Integration tests (require easyocr, slow) ---

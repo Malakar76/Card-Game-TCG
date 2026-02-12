@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 _SUFFIX_PATTERN = re.compile(
     r"\s*[-–—]?\s*(?:VMAX|VSTAR|GX|EX|ex|V)\s*$",
@@ -37,7 +34,7 @@ def is_available() -> bool:
     return False
 
 
-def recognize_text_from_file(path: str | Path, rotation: int = 0, *, mirror: bool = False) -> str:
+def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
     """Run OCR on an image file and return the extracted text.
 
     Uses Google ML Kit on Android, EasyOCR on desktop (pytesseract as fallback).
@@ -45,7 +42,6 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0, *, mirror: boo
     Args:
         path: Path to the image file.
         rotation: Extra rotation in degrees (0/90/180/270) to apply before OCR.
-        mirror: If True, flip the image horizontally before OCR.
     """
     path = str(path)
 
@@ -61,7 +57,7 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0, *, mirror: boo
     try:
         import easyocr
 
-        return _recognize_easyocr(easyocr, path, rotation, mirror=mirror)
+        return _recognize_easyocr(easyocr, path, rotation)
     except ImportError:
         pass
 
@@ -71,7 +67,7 @@ def recognize_text_from_file(path: str | Path, rotation: int = 0, *, mirror: boo
         from PIL import Image
 
         img = Image.open(path)
-        img = _apply_transforms(img, rotation, mirror=mirror)
+        img = _apply_rotation(img, rotation)
         return pytesseract.image_to_string(img)
     except ImportError:
         pass
@@ -90,19 +86,12 @@ def _get_easyocr_reader(easyocr: object) -> object:
     return _easyocr_reader
 
 
-def _recognize_easyocr(
-    easyocr: object, path: str, rotation: int = 0, *, mirror: bool = False
-) -> str:
+def _recognize_easyocr(easyocr: object, path: str, rotation: int = 0) -> str:
     """Perform OCR using EasyOCR."""
     from PIL import Image
 
     img = Image.open(path)
-    img = _apply_transforms(img, rotation, mirror=mirror)
-
-    # Debug: save a copy of the transformed image for visual inspection
-    debug_path = Path(path).parent / "debug_capture.png"
-    img.save(str(debug_path))  # type: ignore[union-attr]
-    logger.info("Debug image saved to %s", debug_path)
+    img = _apply_rotation(img, rotation)
 
     import numpy as np
 
@@ -115,19 +104,15 @@ def _recognize_easyocr(
     return "\n".join(text for _, text, _ in results)
 
 
-def _apply_transforms(img: object, rotation: int = 0, *, mirror: bool = False) -> object:
+def _apply_rotation(img: object, rotation: int = 0) -> object:
     """Fix image orientation for OCR.
 
-    Applies rotation and optional horizontal flip to compensate for
-    webcam orientation on desktop. Skips EXIF handling since camera4kivy
-    saves raw textures without meaningful EXIF orientation data.
+    Applies an explicit rotation to compensate for webcam orientation
+    on desktop. Skips EXIF handling since camera4kivy saves raw textures
+    without meaningful EXIF orientation data.
     """
-    from PIL import Image
-
     if rotation:
         img = img.rotate(rotation, expand=True)  # type: ignore[union-attr]
-    if mirror:
-        img = img.transpose(Image.FLIP_LEFT_RIGHT)  # type: ignore[union-attr]
     return img
 
 
@@ -175,9 +160,21 @@ def extract_pokemon_name(text: str) -> str | None:
     Looks for the first non-empty, non-numeric line and strips common
     suffixes like EX, GX, VMAX, VSTAR, V, ex.
     """
-    if not text or not text.strip():
-        return None
+    candidates = extract_pokemon_candidates(text)
+    return candidates[0] if candidates else None
 
+
+def extract_pokemon_candidates(text: str) -> list[str]:
+    """Extract all possible Pokémon names from OCR text.
+
+    Returns every non-empty, non-numeric line after stripping known
+    suffixes (EX, GX, VMAX, VSTAR, V, ex).  The first entry is the
+    most likely card name (topmost line).
+    """
+    if not text or not text.strip():
+        return []
+
+    candidates: list[str] = []
     for line in text.splitlines():
         line = line.strip()
         if not line:
@@ -187,7 +184,7 @@ def extract_pokemon_name(text: str) -> str | None:
             continue
         # Strip known suffixes
         name = _SUFFIX_PATTERN.sub("", line).strip()
-        if name:
-            return name
+        if name and name not in candidates:
+            candidates.append(name)
 
-    return None
+    return candidates
