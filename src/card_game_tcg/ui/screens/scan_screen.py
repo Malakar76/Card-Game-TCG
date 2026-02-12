@@ -52,6 +52,10 @@ class ScanScreen(Screen):
 
     def on_enter(self) -> None:
         """Start camera preview when entering the screen."""
+        self.is_loading = False
+        self.pokemon_name = ""
+        self.status_text = ""
+
         if not _camera_available:
             self.preview_label = "camera4kivy non installé"
             return
@@ -59,12 +63,7 @@ class ScanScreen(Screen):
         self._request_camera_permission()
 
     def on_leave(self) -> None:
-        """Stop camera preview when leaving the screen."""
-        if self._preview is not None:
-            try:
-                self._preview.disconnect_camera()  # type: ignore[union-attr]
-            except Exception:
-                pass
+        """Leave camera running — disconnecting causes native SIGSEGV on reconnect."""
 
     def _request_camera_permission(self) -> None:
         """Request camera permission on Android, then start preview."""
@@ -88,8 +87,6 @@ class ScanScreen(Screen):
     def _start_preview(self) -> None:
         """Initialize and start the camera preview widget."""
         if self._preview is not None:
-            # Camera widget already exists — just reconnect after on_leave.
-            Clock.schedule_once(lambda _dt: self._connect_camera(), 0)
             return
 
         try:

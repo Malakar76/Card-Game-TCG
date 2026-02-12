@@ -26,3 +26,15 @@ class TCGDEX:
         self.sdk.setLanguage(language)
         query = Query().like("name", name).paginate(page, page_size)
         return self.sdk.card.listSync(query)
+
+    def search_cards_by_exact_name(self, name: str, language: Language) -> list[CardResume]:
+        """Search cards with an exact name match."""
+        self.sdk.setLanguage(language)
+        query = Query().equal("name", name)
+        return self.sdk.card.listSync(query)
+
+    def search_by_evolve_from(self, name: str, language: Language) -> list[CardResume]:
+        """Find cards that evolve from the given Pokémon name."""
+        self.sdk.setLanguage(language)
+        query = Query().equal("evolveFrom", name)
+        return self.sdk.card.listSync(query)
