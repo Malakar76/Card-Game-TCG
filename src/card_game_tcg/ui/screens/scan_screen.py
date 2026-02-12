@@ -87,10 +87,13 @@ class ScanScreen(Screen):
 
     def _start_preview(self) -> None:
         """Initialize and start the camera preview widget."""
-        container = self.ids.preview_container
-        placeholder = self.ids.preview_placeholder
-
         if self._preview is not None:
+            return
+
+        try:
+            container = self.ids.preview_container
+            placeholder = self.ids.preview_placeholder
+        except ReferenceError:
             return
 
         self._capture_dir = self._get_capture_dir()
@@ -119,6 +122,7 @@ class ScanScreen(Screen):
         try:
             self._preview.connect_camera(  # type: ignore[union-attr]
                 enable_analyze_pixels=False,
+                enable_video=False,
                 facing="back",
                 mirrored=False,
                 filepath_callback=self._on_capture_complete,
@@ -267,6 +271,7 @@ class ScanScreen(Screen):
         if name and validated:
             self.pokemon_name = name
             self.status_text = "Pokémon validé via TCGdex !"
+            self._navigate_to_evolution(name)
         elif name:
             self.pokemon_name = name
             self.status_text = "Nom détecté (non validé par TCGdex)"
@@ -277,6 +282,13 @@ class ScanScreen(Screen):
                 self.status_text = f"Aucun nom détecté. Texte : {preview}"
             else:
                 self.status_text = "Aucun texte détecté"
+
+    def _navigate_to_evolution(self, name: str) -> None:
+        """Navigate to the evolution screen for the detected Pokémon."""
+        evolution_screen = self.manager.get_screen("evolution")
+        evolution_screen.pokemon_name = name
+        evolution_screen.selected_language = self.selected_language
+        self.manager.current = "evolution"
 
     def _on_ocr_error(self, error: str) -> None:
         """Handle OCR error on the main thread."""
