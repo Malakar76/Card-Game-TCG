@@ -127,9 +127,12 @@ def _apply_rotation(img: object, rotation: int = 0) -> object:
 
 
 def _recognize_mlkit(autoclass: object, path: str) -> str:
-    """Perform OCR using Google ML Kit via pyjnius."""
-    import threading
+    """Perform OCR using Google ML Kit via pyjnius.
 
+    Uses the synchronous ``Tasks.await()`` API instead of async listeners,
+    since pyjnius cannot implement Java listener interfaces directly.
+    Must be called from a background thread (not the Android main thread).
+    """
     input_image_cls = autoclass("com.google.mlkit.vision.common.InputImage")  # type: ignore[operator]
     text_recognition_cls = autoclass(  # type: ignore[operator]
         "com.google.mlkit.vision.text.TextRecognition"
@@ -138,6 +141,7 @@ def _recognize_mlkit(autoclass: object, path: str) -> str:
         "com.google.mlkit.vision.text.latin.TextRecognizerOptions"
     )
     bitmap_factory_cls = autoclass("android.graphics.BitmapFactory")  # type: ignore[operator]
+    tasks_cls = autoclass("com.google.android.gms.tasks.Tasks")  # type: ignore[operator]
 
     bitmap = bitmap_factory_cls.decodeFile(path)
     if bitmap is None:
@@ -146,22 +150,11 @@ def _recognize_mlkit(autoclass: object, path: str) -> str:
     image = input_image_cls.fromBitmap(bitmap, 0)
     recognizer = text_recognition_cls.getClient(text_options_cls.Builder().build())
 
-    result_text: list[str] = []
-    event = threading.Event()
-
-    def on_success(text: object) -> None:
-        result_text.append(str(text.getText()))  # type: ignore[union-attr]
-        event.set()
-
-    def on_failure(_exc: object) -> None:
-        event.set()
-
     task = recognizer.process(image)
-    task.addOnSuccessListener(on_success)
-    task.addOnFailureListener(on_failure)
-
-    event.wait(timeout=10.0)
-    return result_text[0] if result_text else ""
+    # Tasks.await() blocks until the task completes (must not be on main thread)
+    tasks_await = getattr(tasks_cls, "await")  # 'await' is a Python keyword
+    result = tasks_await(task)
+    return str(result.getText()) if result else ""
 
 
 def extract_pokemon_name(text: str) -> str | None:
