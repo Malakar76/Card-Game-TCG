@@ -12,7 +12,7 @@ source.exclude_patterns = buildozer.spec,pyproject.toml,alembic.ini,*.egg-info
 
 version = 0.1.0
 
-requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.12.5,pydantic-settings,pydantic-core==2.41.5,annotated-types,typing-extensions,typing-inspection,python-dotenv,tcgdex-sdk,dacite
+requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.12.5,pydantic-settings,pydantic-core==2.41.5,annotated-types,typing-extensions,typing-inspection,python-dotenv,tcgdex-sdk,dacite,camera4kivy
 
 orientation = portrait
 fullscreen = 0
@@ -26,11 +26,15 @@ android.accept_sdk_license = True
 # Local recipes override broken p4a sqlalchemy recipe (404 on PyPI URL for 2.x)
 p4a.local_recipes = %(source.dir)s/p4a-recipes
 
-android.permissions = INTERNET
+android.permissions = INTERNET,CAMERA
+
+android.enable_androidx = True
+android.gradle_dependencies = com.google.mlkit:text-recognition:16.0.1
 
 # Release signing (keystore decoded in CI, or placed locally for release builds)
 android.keystore = ./release.keystore
 android.keyalias = cardgametcg
+android.release_artifact = apk
 
 [buildozer]
 
