@@ -55,6 +55,10 @@ htmlcov/
 # Kivy
 *.kv.bak
 
+# Keystore
+*.keystore
+*.jks
+
 # Buildozer
 .buildozer/
 bin/

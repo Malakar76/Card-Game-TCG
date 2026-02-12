@@ -28,6 +28,10 @@ p4a.local_recipes = %(source.dir)s/p4a-recipes
 
 android.permissions = INTERNET
 
+# Release signing (keystore decoded in CI, or placed locally for release builds)
+android.keystore = ./release.keystore
+android.keyalias = cardgametcg
+
 [buildozer]
 
 log_level = 2
