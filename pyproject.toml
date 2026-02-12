@@ -11,8 +11,12 @@ dependencies = [
     "typing-inspection>=0.4.2",
     "pydantic-settings>=2.7.0",
     "kivy>=2.3.0",
+    "camera4kivy>=0.0.1",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
     "properties>=0.6.1",
     "tcgdex-sdk>=2.2.1",
+    "easyocr>=1.7.2",
 ]
 
 [project.scripts]
@@ -27,6 +31,7 @@ packages = ["src/card_game_tcg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.ruff]
 target-version = "py312"

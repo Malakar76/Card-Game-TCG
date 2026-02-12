@@ -1,0 +1,82 @@
+<ScanScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(12)
+
+        canvas.before:
+            Color:
+                rgba: 0.10, 0.10, 0.18, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        NavBar:
+
+        Label:
+            text: "Scanner"
+            font_size: sp(26)
+            size_hint_y: None
+            height: dp(50)
+            bold: True
+            color: 0.89, 0.72, 0.08, 1
+
+        # Camera preview area
+        BoxLayout:
+            id: preview_container
+            size_hint_y: 1
+            canvas.before:
+                Color:
+                    rgba: 0.06, 0.08, 0.14, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]
+                Color:
+                    rgba: 0.89, 0.72, 0.08, 0.4
+                Line:
+                    rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+                    width: 1.1
+
+            Label:
+                id: preview_placeholder
+                text: root.preview_label
+                font_size: sp(14)
+                color: 0.53, 0.53, 0.53, 1
+
+        # Analyze button
+        Button:
+            text: "Analyser"
+            size_hint_y: None
+            height: dp(50)
+            font_size: sp(17)
+            bold: True
+            disabled: root.is_loading
+            background_normal: ""
+            background_color: 0.89, 0.72, 0.08, 1
+            color: 0.10, 0.10, 0.18, 1
+            on_release: root.analyze()
+            canvas.before:
+                Color:
+                    rgba: (0.60, 0.48, 0.06, 1) if root.is_loading else (0.89, 0.72, 0.08, 1)
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]
+
+        # Status text
+        Label:
+            text: root.status_text
+            size_hint_y: None
+            height: dp(28)
+            font_size: sp(14)
+            color: 0.53, 0.53, 0.53, 1
+
+        # Detected Pokemon name
+        Label:
+            text: root.pokemon_name
+            size_hint_y: None
+            height: dp(48)
+            font_size: sp(24)
+            bold: True
+            color: 0.89, 0.72, 0.08, 1

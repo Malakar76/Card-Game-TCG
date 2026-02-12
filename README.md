@@ -9,6 +9,7 @@ Application de jeu de cartes à collectionner (Trading Card Game) construite ave
 - **Alembic** pour les migrations de base de données
 - **Pydantic** pour la validation des données
 - **Kivy** pour l'interface graphique (desktop + Android via Buildozer)
+- **EasyOCR** / **Google ML Kit** pour la reconnaissance de cartes (scan OCR)
 - **uv** pour la gestion des dépendances
 
 ## Prérequis
@@ -43,10 +44,25 @@ L'application se configure via des variables d'environnement préfixées par `TC
 
 Vous pouvez aussi créer un fichier `.env` à la racine du projet.
 
+## Scanner de cartes (OCR)
+
+L'application intègre un scanner qui utilise la caméra pour identifier les cartes Pokémon :
+
+- **Desktop** : [EasyOCR](https://github.com/JaidedAI/EasyOCR) (reconnaissance FR/EN), pytesseract en fallback
+- **Android** : Google ML Kit (via pyjnius)
+
+Le scanner capture une photo, extrait le texte par OCR, puis identifie le nom du Pokémon en filtrant les suffixes (EX, GX, VMAX, VSTAR, V, ex).
+
 ## Tests
 
 ```bash
 uv run pytest
+```
+
+Pour exclure les tests lents (OCR sur image réelle) :
+
+```bash
+uv run pytest -m "not slow"
 ```
 
 ## Build Android (APK)
@@ -81,10 +97,11 @@ src/card_game_tcg/
 ├── schemas/             # Schémas Pydantic (validation)
 │   └── card.py          # CardCreate, CardRead
 ├── services/            # Logique métier
-│   └── card_service.py
+│   ├── card_service.py  # CRUD cartes
+│   └── ocr_service.py   # Reconnaissance de texte (OCR multiplateforme)
 └── ui/                  # Interface Kivy
     ├── app.py           # CardGameApp
-    ├── screens/         # Écrans (Screen)
+    ├── screens/         # Écrans (Screen) : collection, recherche, scanner
     └── kv/              # Fichiers .kv (layout déclaratif)
 main.py                  # Entry point Buildozer (racine)
 buildozer.spec           # Configuration Buildozer (Android)
