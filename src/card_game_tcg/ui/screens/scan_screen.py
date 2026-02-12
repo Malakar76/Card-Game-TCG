@@ -79,7 +79,13 @@ class ScanScreen(Screen):
                 else:
                     self.status_text = "Permission caméra refusée"
 
-            request_permissions([Permission.CAMERA], _callback)
+            perms = [Permission.CAMERA]
+            # API 33+: READ_MEDIA_IMAGES to access CameraX captures in DCIM
+            if hasattr(Permission, "READ_MEDIA_IMAGES"):
+                perms.append(Permission.READ_MEDIA_IMAGES)
+            else:
+                perms.append(Permission.READ_EXTERNAL_STORAGE)
+            request_permissions(perms, _callback)
         except ImportError:
             # Desktop: no permission needed
             self._start_preview()
@@ -168,24 +174,29 @@ class ScanScreen(Screen):
 
     def _on_capture_complete(self, file_path: str) -> None:
         """Called by camera4kivy when the photo has been saved."""
-        logger.info("filepath_callback received: %r", file_path)
+        try:
+            logger.info("filepath_callback received: %r", file_path)
 
-        resolved = self._resolve_capture_path(file_path)
-        if resolved:
-            self._start_ocr(resolved)
-            return
+            resolved = self._resolve_capture_path(file_path)
+            if resolved:
+                self._start_ocr(resolved)
+                return
 
-        # Fallback: scan capture dir for newest image (CameraX may not
-        # return the path through the callback on all devices)
-        found = self._find_latest_capture()
-        if found:
-            logger.info("Found capture via directory scan: %s", found)
-            self._start_ocr(found)
-            return
+            # Fallback: scan capture dir for newest image (CameraX may not
+            # return the path through the callback on all devices)
+            found = self._find_latest_capture()
+            if found:
+                logger.info("Found capture via directory scan: %s", found)
+                self._start_ocr(found)
+                return
 
-        msg = f"Fichier introuvable (callback={file_path!r}, dir={self._capture_dir})"
-        logger.warning(msg)
-        Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
+            msg = f"Fichier introuvable (callback={file_path!r}, dir={self._capture_dir})"
+            logger.warning(msg)
+            Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
+        except Exception as exc:
+            logger.exception("Error in _on_capture_complete")
+            msg = str(exc)
+            Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
 
     @staticmethod
     def _resolve_capture_path(file_path: str) -> str | None:
@@ -197,16 +208,20 @@ class ScanScreen(Screen):
         if not file_path or file_path.startswith("Image Capture"):
             return None
 
-        p = Path(file_path)
-        if p.is_absolute() and p.exists():
-            return file_path
+        try:
+            p = Path(file_path)
+            if p.is_absolute() and p.exists():
+                return file_path
 
-        # Android: resolve relative path against external storage
-        if _is_android:
-            for base in ("/storage/emulated/0", "/sdcard"):
-                candidate = Path(base) / file_path
-                if candidate.exists():
-                    return str(candidate)
+            # Android: resolve relative path against external storage
+            if _is_android:
+                for base in ("/storage/emulated/0", "/sdcard"):
+                    candidate = Path(base) / file_path
+                    if candidate.exists():
+                        logger.info("Resolved capture path: %s", candidate)
+                        return str(candidate)
+        except OSError as exc:
+            logger.warning("Error resolving capture path %r: %s", file_path, exc)
 
         return None
 

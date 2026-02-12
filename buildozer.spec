@@ -10,7 +10,7 @@ source.include_patterns = main.py,src/**/*.py,src/**/*.kv
 source.exclude_dirs = tests,.venv,.git,.github,.ruff_cache,.pytest_cache,db/migrations,build,dist
 source.exclude_patterns = buildozer.spec,pyproject.toml,alembic.ini,*.egg-info
 
-version = 0.1.6
+version = 0.1.7
 
 requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.12.5,pydantic-settings,pydantic-core==2.41.5,annotated-types,typing-extensions,typing-inspection,python-dotenv,tcgdex-sdk,dacite,camera4kivy,gestures4kivy
 
@@ -29,7 +29,7 @@ p4a.local_recipes = %(source.dir)s/p4a-recipes
 # CameraX provider hook for camera4kivy on Android
 p4a.hook = camerax_provider/gradle_options.py
 
-android.permissions = INTERNET,CAMERA
+android.permissions = INTERNET,CAMERA,READ_MEDIA_IMAGES,READ_EXTERNAL_STORAGE
 
 android.enable_androidx = True
 android.gradle_dependencies = com.google.mlkit:text-recognition:16.0.1
