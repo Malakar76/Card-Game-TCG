@@ -121,95 +121,107 @@ def resolve_evolution_chain(
     Returns a list of ``(name, image_url, stage_label)`` tuples ordered
     from base form to final evolution.  Handles branching evolutions
     (e.g. Eevee -> multiple stage-1 forms).
+
+    Uses per-resolution caches to minimise API calls.
     """
+    card_cache: dict[str, object | None] = {}
+    exact_cache: dict[str, list[object]] = {}
+
     # 1. Get a card for the detected name
     results = client.search_cards_by_name(name, language, page_size=1)
     if not results:
         return []
 
-    try:
-        card = client.get_card(results[0].id)
-    except Exception:
-        card = None
+    card = _cached_get_card(client, results[0].id, card_cache)
     if card is None:
         return []
 
-    # 2. Climb to the base form
+    # 2. Climb to the base form using the initial evolveFrom directly
     base_name = card.name
     base_image = f"{card.image}/high.png" if card.image else ""
 
     visited: set[str] = {base_name}
-    while True:
-        evolve_from = _find_evolve_from(client, base_name, language)
-        if not evolve_from or evolve_from in visited:
-            break
-        visited.add(evolve_from)
-        parent = _find_card_by_name(client, evolve_from, language)
+    evolve_from = card.evolveFrom
+    while evolve_from and evolve_from not in visited:
+        parent = _resolve_parent(client, evolve_from, base_name, language, exact_cache, card_cache)
         if parent is None:
             break
+        visited.add(parent.name)
         base_name = parent.name
         base_image = f"{parent.image}/high.png" if parent.image else ""
+        evolve_from = parent.evolveFrom
 
     # 3. Descend from the base form to collect the full tree
     chain: list[tuple[str, str, str]] = []
-    visited: set[str] = set()
-    _collect_descendants(client, base_name, base_image, language, chain, depth=0, visited=visited)
+    desc_visited: set[str] = set()
+    _collect_descendants(
+        client, base_name, base_image, language, chain, depth=0, visited=desc_visited
+    )
 
     return chain
 
 
-def _find_card_by_name(client: TCGDEX, name: str, language: Language) -> object | None:
-    """Find a card by exact name, returning the full Card object or ``None``."""
+def _cached_get_card(
+    client: TCGDEX, card_id: str, cache: dict[str, object | None]
+) -> object | None:
+    """Fetch a card by ID, using a local cache to avoid duplicate API calls."""
+    if card_id in cache:
+        return cache[card_id]
+    try:
+        card = client.get_card(card_id)
+    except Exception:
+        card = None
+    cache[card_id] = card
+    return card
+
+
+def _cached_exact_search(
+    client: TCGDEX, name: str, language: Language, cache: dict[str, list[object]]
+) -> list[object]:
+    """Search cards by exact name, using a local cache."""
+    if name in cache:
+        return cache[name]
     results = client.search_cards_by_exact_name(name, language)
-    if not results:
-        return None
-    for r in results:
-        try:
-            card = client.get_card(r.id)
-        except Exception:
-            continue
-        if card is not None:
-            return card
-    return None
+    cache[name] = results
+    return results
 
 
-def _find_evolve_from(client: TCGDEX, pokemon_name: str, language: Language) -> str | None:
-    """Return the ``evolveFrom`` name for a Pokémon, trying multiple cards.
+def _resolve_parent(
+    client: TCGDEX,
+    evolve_from: str,
+    current_name: str,
+    language: Language,
+    exact_cache: dict[str, list[object]],
+    card_cache: dict[str, object | None],
+) -> object | None:
+    """Resolve the parent card for a given ``evolveFrom`` value.
 
-    Different printings of the same Pokémon can have inconsistent
-    ``evolveFrom`` values (e.g. ``"Dragonir"`` vs ``"Draco"`` for
-    Dracolosse).  This helper tries several cards until it finds an
-    ``evolveFrom`` whose parent is actually resolvable in the database.
+    First tries the direct ``evolve_from`` name.  If that name cannot be
+    found in TCGdex, falls back to checking other printings of
+    ``current_name`` for an alternative ``evolveFrom`` value.
     """
-    cards = client.search_cards_by_exact_name(pokemon_name, language)
-    if not cards:
-        return None
+    # Direct lookup: search for the evolveFrom name
+    parent_results = _cached_exact_search(client, evolve_from, language, exact_cache)
+    if parent_results:
+        parent = _cached_get_card(client, parent_results[0].id, card_cache)
+        if parent is not None:
+            return parent
 
-    # First pass: collect all distinct evolveFrom values
-    evolve_names: list[str] = []
-    seen: set[str] = set()
-    for resume in cards:
-        try:
-            full = client.get_card(resume.id)
-        except Exception:
+    # Fallback: try other printings of current_name for a different evolveFrom
+    printings = _cached_exact_search(client, current_name, language, exact_cache)
+    seen_names: set[str] = {evolve_from}
+    for printing in printings:
+        full = _cached_get_card(client, printing.id, card_cache)
+        if full is None or not full.evolveFrom or full.evolveFrom in seen_names:
             continue
-        if full is None or not full.evolveFrom:
-            continue
-        if full.evolveFrom not in seen:
-            seen.add(full.evolveFrom)
-            evolve_names.append(full.evolveFrom)
+        seen_names.add(full.evolveFrom)
+        alt_results = _cached_exact_search(client, full.evolveFrom, language, exact_cache)
+        if alt_results:
+            parent = _cached_get_card(client, alt_results[0].id, card_cache)
+            if parent is not None:
+                return parent
 
-    if not evolve_names:
-        return None
-
-    # Second pass: pick the first evolveFrom whose parent exists as a card
-    for evo_name in evolve_names:
-        parent_results = client.search_cards_by_exact_name(evo_name, language)
-        if parent_results:
-            return evo_name
-
-    # Fallback: return the first value even if we can't resolve it further
-    return evolve_names[0]
+    return None
 
 
 _VARIANT_SUFFIX = re.compile(

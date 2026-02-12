@@ -34,6 +34,16 @@ def is_available() -> bool:
     return False
 
 
+def warm_up() -> None:
+    """Pre-load the OCR model so the first scan is faster."""
+    try:
+        import easyocr
+
+        _get_easyocr_reader(easyocr)
+    except ImportError:
+        pass
+
+
 def recognize_text_from_file(path: str | Path, rotation: int = 0) -> str:
     """Run OCR on an image file and return the extracted text.
 

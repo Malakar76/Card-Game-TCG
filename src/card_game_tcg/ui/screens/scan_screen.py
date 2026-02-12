@@ -33,9 +33,9 @@ except ImportError:
 
 _is_android = "android" in sys.modules or hasattr(sys, "getandroidapilevel")
 
-_MAX_OCR_ATTEMPTS = 3
-
 _client = TCGDEX()
+
+_ocr_warmed_up = False
 
 
 class ScanScreen(Screen):
@@ -52,9 +52,15 @@ class ScanScreen(Screen):
 
     def on_enter(self) -> None:
         """Start camera preview when entering the screen."""
+        global _ocr_warmed_up  # noqa: PLW0603
+
         self.is_loading = False
         self.pokemon_name = ""
         self.status_text = ""
+
+        if not _ocr_warmed_up:
+            _ocr_warmed_up = True
+            Thread(target=ocr_service.warm_up, daemon=True).start()
 
         if not _camera_available:
             self.preview_label = "camera4kivy non installé"
@@ -267,30 +273,28 @@ class ScanScreen(Screen):
             rotation = 0 if _is_android else 270
             language = self._get_language()
 
-            for attempt in range(1, _MAX_OCR_ATTEMPTS + 1):
+            Clock.schedule_once(lambda _dt: self._update_status("Analyse OCR..."))
+
+            raw_text = ocr_service.recognize_text_from_file(file_path, rotation)
+            candidates = ocr_service.extract_pokemon_candidates(raw_text)
+
+            if not candidates:
                 Clock.schedule_once(
-                    lambda _dt, a=attempt: self._update_status(
-                        f"Analyse OCR (tentative {a}/{_MAX_OCR_ATTEMPTS})..."
-                    )
+                    lambda _dt: self._on_ocr_result(None, raw_text, validated=False)
                 )
+                return
 
-                raw_text = ocr_service.recognize_text_from_file(file_path, rotation)
-                candidates = ocr_service.extract_pokemon_candidates(raw_text)
+            for name in candidates:
+                try:
+                    results = _client.search_cards_by_name(name, language, page_size=1)
+                except Exception:
+                    results = []
+                if results:
+                    Clock.schedule_once(lambda _dt, n=name: self._on_ocr_result(n, raw_text))
+                    return
 
-                if not candidates:
-                    continue
-
-                for name in candidates:
-                    try:
-                        results = _client.search_cards_by_name(name, language, page_size=1)
-                    except Exception:
-                        results = []
-                    if results:
-                        Clock.schedule_once(lambda _dt, n=name: self._on_ocr_result(n, raw_text))
-                        return
-
-            # All attempts exhausted – fall back to first candidate if any
-            fallback = candidates[0] if candidates else None
+            # No candidate validated – fall back to first candidate
+            fallback = candidates[0]
             Clock.schedule_once(
                 lambda _dt: self._on_ocr_result(fallback, raw_text, validated=False)
             )

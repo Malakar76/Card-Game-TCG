@@ -8,6 +8,7 @@ from card_game_tcg.services.ocr_service import (
     extract_pokemon_candidates,
     extract_pokemon_name,
     is_available,
+    warm_up,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -79,6 +80,11 @@ def test_none_returns_none() -> None:
 def test_is_available_returns_bool() -> None:
     result = is_available()
     assert isinstance(result, bool)
+
+
+def test_warm_up_does_not_raise() -> None:
+    """warm_up() should not raise even if no OCR backend is available."""
+    warm_up()
 
 
 # --- extract_pokemon_candidates tests ---

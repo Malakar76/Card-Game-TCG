@@ -7,7 +7,13 @@ from unittest.mock import MagicMock
 
 from tcgdexsdk import Language
 
-from card_game_tcg.ui.screens.evolution_screen import _species_name, resolve_evolution_chain
+from card_game_tcg.ui.screens.evolution_screen import (
+    _cached_exact_search,
+    _cached_get_card,
+    _resolve_parent,
+    _species_name,
+    resolve_evolution_chain,
+)
 
 
 def _make_card_resume(card_id: str, name: str, image: str = "") -> SimpleNamespace:
@@ -213,6 +219,124 @@ class TestResolveEvolutionChain:
         assert chain[1][2] == "Stage 1"
         assert chain[2][0] == "Dracolosse"
         assert chain[2][2] == "Stage 2"
+
+
+class TestCachedGetCard:
+    """Test the _cached_get_card helper."""
+
+    def test_returns_card_and_caches(self) -> None:
+        """First call fetches from client, second uses cache."""
+        card = _make_card("Pikachu", "https://img/pikachu")
+        client = MagicMock()
+        client.get_card.return_value = card
+
+        cache: dict[str, object | None] = {}
+        result = _cached_get_card(client, "xy1-50", cache)
+
+        assert result is card
+        assert "xy1-50" in cache
+        client.get_card.assert_called_once_with("xy1-50")
+
+        # Second call should use cache, not the client
+        result2 = _cached_get_card(client, "xy1-50", cache)
+        assert result2 is card
+        client.get_card.assert_called_once()  # still only one call
+
+    def test_caches_none_on_exception(self) -> None:
+        """If get_card raises, cache None to avoid retrying."""
+        client = MagicMock()
+        client.get_card.side_effect = Exception("API error")
+
+        cache: dict[str, object | None] = {}
+        result = _cached_get_card(client, "bad-id", cache)
+
+        assert result is None
+        assert cache["bad-id"] is None
+
+
+class TestCachedExactSearch:
+    """Test the _cached_exact_search helper."""
+
+    def test_returns_results_and_caches(self) -> None:
+        resumes = [_make_card_resume("xy1-50", "Pikachu")]
+        client = MagicMock()
+        client.search_cards_by_exact_name.return_value = resumes
+
+        cache: dict[str, list] = {}
+        result = _cached_exact_search(client, "Pikachu", Language.FR, cache)
+
+        assert result == resumes
+        assert "Pikachu" in cache
+
+        # Second call uses cache
+        _cached_exact_search(client, "Pikachu", Language.FR, cache)
+        client.search_cards_by_exact_name.assert_called_once()
+
+
+class TestResolveParent:
+    """Test the _resolve_parent helper."""
+
+    def test_direct_lookup_succeeds(self) -> None:
+        """Parent found directly via evolveFrom name."""
+        parent_card = _make_card("Charmander", "https://img/charmander")
+        client = _setup_client(
+            exact_name_results={
+                "Charmander": [_make_card_resume("xy1-11", "Charmander")],
+            },
+            card_details={
+                "xy1-11": parent_card,
+            },
+        )
+
+        exact_cache: dict[str, list] = {}
+        card_cache: dict[str, object | None] = {}
+        result = _resolve_parent(
+            client, "Charmander", "Charmeleon", Language.FR, exact_cache, card_cache
+        )
+
+        assert result is parent_card
+
+    def test_fallback_to_alternative_printing(self) -> None:
+        """When direct evolveFrom is not found, try other printings."""
+        parent_card = _make_card("Draco", "https://img/draco", evolve_from="Minidraco")
+        client = _setup_client(
+            exact_name_results={
+                # "Dragonir" not found
+                "Dracolosse": [
+                    _make_card_resume("dp6-2", "Dracolosse"),
+                    _make_card_resume("dv1-5", "Dracolosse"),
+                ],
+                "Draco": [_make_card_resume("dv1-3", "Draco")],
+            },
+            card_details={
+                "dp6-2": _make_card("Dracolosse", "https://img/d1", evolve_from="Dragonir"),
+                "dv1-5": _make_card("Dracolosse", "https://img/d2", evolve_from="Draco"),
+                "dv1-3": parent_card,
+            },
+        )
+
+        exact_cache: dict[str, list] = {}
+        card_cache: dict[str, object | None] = {}
+        result = _resolve_parent(
+            client, "Dragonir", "Dracolosse", Language.FR, exact_cache, card_cache
+        )
+
+        assert result is parent_card
+
+    def test_returns_none_when_nothing_found(self) -> None:
+        """Return None when neither direct nor fallback finds a parent."""
+        client = _setup_client(
+            exact_name_results={
+                "UnknownMon": [_make_card_resume("x-1", "UnknownMon")],
+            },
+            card_details={
+                "x-1": _make_card("UnknownMon", ""),
+            },
+        )
+
+        result = _resolve_parent(client, "NoParent", "UnknownMon", Language.FR, {}, {})
+
+        assert result is None
 
 
 class TestSpeciesName:
