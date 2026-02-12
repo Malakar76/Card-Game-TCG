@@ -88,6 +88,8 @@ class ScanScreen(Screen):
     def _start_preview(self) -> None:
         """Initialize and start the camera preview widget."""
         if self._preview is not None:
+            # Camera widget already exists — just reconnect after on_leave.
+            Clock.schedule_once(lambda _dt: self._connect_camera(), 0)
             return
 
         try:
@@ -171,9 +173,9 @@ class ScanScreen(Screen):
         """Called by camera4kivy when the photo has been saved."""
         logger.info("filepath_callback received: %r", file_path)
 
-        # If callback path is valid, use it directly
-        if file_path and Path(file_path).exists():
-            self._start_ocr(file_path)
+        resolved = self._resolve_capture_path(file_path)
+        if resolved:
+            self._start_ocr(resolved)
             return
 
         # Fallback: scan capture dir for newest image (CameraX may not
@@ -187,6 +189,29 @@ class ScanScreen(Screen):
         msg = f"Fichier introuvable (callback={file_path!r}, dir={self._capture_dir})"
         logger.warning(msg)
         Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
+
+    @staticmethod
+    def _resolve_capture_path(file_path: str) -> str | None:
+        """Resolve a capture path returned by camera4kivy.
+
+        On Android, camera4kivy may return a relative path (e.g.
+        ``DCIM/Card Game TCG/...``) relative to external storage.
+        """
+        if not file_path or file_path.startswith("Image Capture"):
+            return None
+
+        p = Path(file_path)
+        if p.is_absolute() and p.exists():
+            return file_path
+
+        # Android: resolve relative path against external storage
+        if _is_android:
+            for base in ("/storage/emulated/0", "/sdcard"):
+                candidate = Path(base) / file_path
+                if candidate.exists():
+                    return str(candidate)
+
+        return None
 
     def _find_latest_capture(self) -> str | None:
         """Find the most recently modified image in the capture directory."""
