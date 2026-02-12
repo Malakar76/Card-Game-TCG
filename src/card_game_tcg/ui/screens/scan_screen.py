@@ -305,11 +305,14 @@ class ScanScreen(Screen):
         """Run OCR on the captured image and validate via TCGdex."""
         try:
             rotation = 0 if _is_android else 270
+            logger.info("OCR thread started for %s (rotation=%d)", file_path, rotation)
 
             Clock.schedule_once(lambda _dt: self._update_status("Analyse OCR..."))
 
             raw_text = ocr_service.recognize_text_from_file(file_path, rotation)
+            logger.info("OCR raw text: %r", raw_text[:200] if raw_text else "")
             candidates = ocr_service.extract_pokemon_candidates(raw_text)
+            logger.info("OCR candidates: %s", candidates)
 
             if not candidates:
                 Clock.schedule_once(
@@ -328,7 +331,8 @@ class ScanScreen(Screen):
             Clock.schedule_once(
                 lambda _dt: self._on_ocr_result(fallback, raw_text, validated=False)
             )
-        except Exception as err:
+        except BaseException as err:
+            logger.exception("OCR thread error: %s", err)
             msg = str(err)
             Clock.schedule_once(lambda _dt: self._on_ocr_error(msg))
 

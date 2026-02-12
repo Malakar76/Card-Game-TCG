@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _SUFFIX_PATTERN = re.compile(
     r"\s*[-–—]?\s*(?:VMAX|VSTAR|GX|EX|ex|V)\s*$",
@@ -133,6 +136,7 @@ def _recognize_mlkit(autoclass: object, path: str) -> str:
     since pyjnius cannot implement Java listener interfaces directly.
     Must be called from a background thread (not the Android main thread).
     """
+    logger.info("ML Kit OCR: loading classes")
     input_image_cls = autoclass("com.google.mlkit.vision.common.InputImage")  # type: ignore[operator]
     text_recognition_cls = autoclass(  # type: ignore[operator]
         "com.google.mlkit.vision.text.TextRecognition"
@@ -142,19 +146,27 @@ def _recognize_mlkit(autoclass: object, path: str) -> str:
     )
     bitmap_factory_cls = autoclass("android.graphics.BitmapFactory")  # type: ignore[operator]
     tasks_cls = autoclass("com.google.android.gms.tasks.Tasks")  # type: ignore[operator]
+    timeunit_cls = autoclass("java.util.concurrent.TimeUnit")  # type: ignore[operator]
 
+    logger.info("ML Kit OCR: decoding bitmap from %s", path)
     bitmap = bitmap_factory_cls.decodeFile(path)
     if bitmap is None:
+        logger.warning("ML Kit OCR: bitmap is None for %s", path)
         return ""
 
+    logger.info("ML Kit OCR: creating InputImage and recognizer")
     image = input_image_cls.fromBitmap(bitmap, 0)
     recognizer = text_recognition_cls.getClient(text_options_cls.Builder().build())
 
+    logger.info("ML Kit OCR: calling recognizer.process()")
     task = recognizer.process(image)
     # Tasks.await() blocks until the task completes (must not be on main thread)
     tasks_await = getattr(tasks_cls, "await")  # 'await' is a Python keyword
-    result = tasks_await(task)
-    return str(result.getText()) if result else ""
+    logger.info("ML Kit OCR: waiting for result (timeout 15s)")
+    result = tasks_await(task, 15, timeunit_cls.SECONDS)
+    text = str(result.getText()) if result else ""
+    logger.info("ML Kit OCR: result text=%r", text[:100] if text else "")
+    return text
 
 
 def extract_pokemon_name(text: str) -> str | None:
