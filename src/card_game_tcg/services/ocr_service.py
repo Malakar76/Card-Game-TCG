@@ -29,8 +29,8 @@ try:
     _mlkit_classes = {
         "InputImage": _autoclass("com.google.mlkit.vision.common.InputImage"),
         "TextRecognition": _autoclass("com.google.mlkit.vision.text.TextRecognition"),
-        "TextRecognizerOptions": _autoclass(
-            "com.google.mlkit.vision.text.latin.TextRecognizerOptions"
+        "TextRecognizerOptionsBuilder": _autoclass(
+            "com.google.mlkit.vision.text.latin.TextRecognizerOptions$Builder"
         ),
         "BitmapFactory": _autoclass("android.graphics.BitmapFactory"),
         "Tasks": _autoclass("com.google.android.gms.tasks.Tasks"),
@@ -162,7 +162,7 @@ def _recognize_mlkit(classes: dict[str, object], path: str) -> str:
     bitmap_factory = classes["BitmapFactory"]
     input_image = classes["InputImage"]
     text_recognition = classes["TextRecognition"]
-    text_options = classes["TextRecognizerOptions"]
+    options_builder = classes["TextRecognizerOptionsBuilder"]
     tasks = classes["Tasks"]
     timeunit = classes["TimeUnit"]
 
@@ -174,9 +174,8 @@ def _recognize_mlkit(classes: dict[str, object], path: str) -> str:
 
     logger.info("ML Kit OCR: creating InputImage and recognizer")
     image = input_image.fromBitmap(bitmap, 0)  # type: ignore[union-attr]
-    recognizer = text_recognition.getClient(  # type: ignore[union-attr]
-        text_options.Builder().build()  # type: ignore[union-attr]
-    )
+    options = options_builder().build()  # type: ignore[operator]
+    recognizer = text_recognition.getClient(options)  # type: ignore[union-attr]
 
     logger.info("ML Kit OCR: calling recognizer.process()")
     task = recognizer.process(image)
