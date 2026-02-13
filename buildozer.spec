@@ -10,7 +10,7 @@ source.include_patterns = main.py,src/**/*.py,src/**/*.kv
 source.exclude_dirs = tests,.venv,.git,.github,.ruff_cache,.pytest_cache,db/migrations,build,dist
 source.exclude_patterns = buildozer.spec,pyproject.toml,alembic.ini,*.egg-info
 
-version = 0.2.4
+version = 0.2.5
 
 requirements = python3,kivy==2.3.0,sqlalchemy==2.0.36,pydantic==2.12.5,pydantic-settings,pydantic-core==2.41.5,annotated-types,typing-extensions,typing-inspection,python-dotenv,tcgdex-sdk,dacite,camera4kivy,gestures4kivy
 
