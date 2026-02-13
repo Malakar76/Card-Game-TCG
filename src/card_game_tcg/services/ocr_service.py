@@ -26,13 +26,24 @@ _mlkit_classes: dict[str, object] | None = None
 try:
     from jnius import autoclass as _autoclass
 
+    # Pre-resolve every class that pyjnius will encounter in the ML Kit
+    # call chain.  pyjnius also auto-resolves return types internally, so
+    # we must cache those classes here too (e.g. TextRecognizerOptions is
+    # the return type of Builder.build(), TextRecognizer of getClient(), etc.)
     _mlkit_classes = {
         "InputImage": _autoclass("com.google.mlkit.vision.common.InputImage"),
         "TextRecognition": _autoclass("com.google.mlkit.vision.text.TextRecognition"),
+        "TextRecognizerOptions": _autoclass(
+            "com.google.mlkit.vision.text.latin.TextRecognizerOptions"
+        ),
         "TextRecognizerOptionsBuilder": _autoclass(
             "com.google.mlkit.vision.text.latin.TextRecognizerOptions$Builder"
         ),
+        "TextRecognizer": _autoclass("com.google.mlkit.vision.text.TextRecognizer"),
+        "Text": _autoclass("com.google.mlkit.vision.text.Text"),
+        "Task": _autoclass("com.google.android.gms.tasks.Task"),
         "BitmapFactory": _autoclass("android.graphics.BitmapFactory"),
+        "Bitmap": _autoclass("android.graphics.Bitmap"),
         "Tasks": _autoclass("com.google.android.gms.tasks.Tasks"),
         "TimeUnit": _autoclass("java.util.concurrent.TimeUnit"),
     }
