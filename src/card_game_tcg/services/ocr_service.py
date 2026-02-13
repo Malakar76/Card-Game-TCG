@@ -33,6 +33,8 @@ try:
         "InputImage": _autoclass("com.google.mlkit.vision.common.InputImage"),
         "BitmapFactory": _autoclass("android.graphics.BitmapFactory"),
         "Tasks": _autoclass("com.google.android.gms.tasks.Tasks"),
+        "Task": _autoclass("com.google.android.gms.tasks.Task"),
+        "Text": _autoclass("com.google.mlkit.vision.text.Text"),
         "TimeUnit": _autoclass("java.util.concurrent.TimeUnit"),
     }
 
